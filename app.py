@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from html import escape
+import textwrap
 
 
 
@@ -881,6 +882,224 @@ body::before {
 
     }
 
+}
+
+
+
+/* =========================================================
+   AIR AWARE // CINEMATIC BRAND SYSTEM
+   ========================================================= */
+
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(900px 500px at 78% 7%, rgba(54,159,255,.12), transparent 64%),
+        radial-gradient(760px 520px at 8% 60%, rgba(40,238,182,.10), transparent 63%),
+        radial-gradient(680px 500px at 88% 78%, rgba(137,88,255,.10), transparent 68%),
+        linear-gradient(118deg, rgba(3,9,15,.30), transparent 28%, rgba(8,22,34,.16) 61%, rgba(17,7,35,.12));
+    animation: aaAmbientShift 15s ease-in-out infinite alternate;
+}
+
+.stApp::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: .27;
+    background-image:
+        radial-gradient(circle at 12% 22%, rgba(255,255,255,.8) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 31% 78%, rgba(113,214,255,.62) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 80% 26%, rgba(169,134,255,.60) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 91% 76%, rgba(119,255,210,.52) 0 1px, transparent 1.7px);
+    background-size: 240px 240px, 320px 320px, 410px 410px, 280px 280px;
+    animation: aaStarDrift 28s linear infinite;
+}
+
+@keyframes aaAmbientShift {
+    from { transform: scale(1) translate3d(0,0,0); filter: saturate(1); }
+    to { transform: scale(1.045) translate3d(-1.2%,1%,0); filter: saturate(1.18); }
+}
+
+@keyframes aaStarDrift {
+    from { transform: translate3d(0,0,0); }
+    to { transform: translate3d(-24px,16px,0); }
+}
+
+.block-container {
+    position: relative;
+    z-index: 3;
+}
+
+[data-testid="stSidebar"] {
+    position: relative;
+    z-index: 4;
+}
+
+.aa-brand {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0 10px;
+}
+
+.aa-logo-orb {
+    width: 66px;
+    height: 66px;
+    flex: 0 0 66px;
+    filter: drop-shadow(0 0 22px rgba(67,216,255,.20));
+    animation: aaLogoFloat 4.5s ease-in-out infinite;
+}
+
+.aa-logo-orb svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+@keyframes aaLogoFloat {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-3px) rotate(2.2deg); }
+}
+
+.aa-brand-wordmark { min-width: 0; }
+
+.aa-brand-name {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -.06em;
+    line-height: .96;
+    color: #f2f8fb;
+}
+
+.aa-brand-name span {
+    background: linear-gradient(105deg, #f6f9fb 5%, #91f7d9 48%, #60c4ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.aa-brand-name em {
+    display: block;
+    margin-top: 5px;
+    font-style: normal;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .44em;
+    color: #73879a;
+}
+
+.aa-brand-tagline {
+    margin-top: 8px;
+    color: #73879b;
+    font-size: 9px;
+}
+
+.aa-main-header {
+    position: relative;
+    padding: 3px 0 6px;
+}
+
+.aa-main-header::before {
+    content: "";
+    position: absolute;
+    left: -40px;
+    top: -25px;
+    width: 520px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(70,190,255,.10), transparent 68%);
+    filter: blur(20px);
+    z-index: -1;
+    animation: aaHeaderPulse 7s ease-in-out infinite;
+}
+
+@keyframes aaHeaderPulse {
+    0%,100% { opacity: .65; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.06); }
+}
+
+.aa-main-kicker {
+    color: #778a9e;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    margin-bottom: 11px;
+}
+
+.aa-main-title {
+    font-size: clamp(2.8rem, 4.4vw, 4.7rem);
+    line-height: .90;
+    font-weight: 900;
+    letter-spacing: -.08em;
+    color: #f6f9fc;
+    text-shadow: 0 0 42px rgba(94,190,255,.07);
+}
+
+.aa-main-title span {
+    background: linear-gradient(105deg, #f7fafc 8%, #8df5d6 46%, #63c2ff 84%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.aa-main-title strong { font-weight: 900; color: #edf5fa; }
+
+.aa-main-subtitle {
+    margin-top: 14px;
+    color: #8496a9;
+    font-size: 13px;
+}
+
+.aa-feature-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.aa-feature-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(135deg, rgba(255,255,255,.035), rgba(255,255,255,.014));
+    color: #aebbc7;
+    font-size: 9px;
+    font-weight: 750;
+    backdrop-filter: blur(14px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    transition: transform .24s ease, border-color .24s ease, box-shadow .24s ease, background .24s ease;
+}
+
+.aa-feature-pill:hover {
+    transform: translateY(-3px);
+    border-color: rgba(100,196,255,.24);
+    background: rgba(255,255,255,.05);
+    box-shadow: 0 14px 32px rgba(0,0,0,.18), 0 0 24px rgba(82,190,255,.045);
+}
+
+.aa-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    box-shadow: 0 0 10px currentColor;
+}
+.aa-pill-dot.cyan { color: #55e2b0; background: #55e2b0; }
+.aa-pill-dot.blue { color: #5aa8ff; background: #5aa8ff; }
+.aa-pill-dot.violet { color: #9a7dff; background: #9a7dff; }
+.aa-pill-dot.green { color: #63e5a6; background: #63e5a6; }
+
+@media (max-width: 720px) {
+    .aa-main-title { font-size: 2.6rem; }
+    .aa-feature-row { gap: 6px; }
 }
 
 </style>
@@ -3129,8 +3348,38 @@ historical_model = load_historical_model()
 
 
 
-st.sidebar.markdown("## 🌍 AirAware India")
-
+st.sidebar.markdown(
+    """
+    <div class="aa-brand">
+        <div class="aa-logo-orb">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+                <defs>
+                    <linearGradient id="aaLogoGrad" x1="20" y1="15" x2="100" y2="105" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stop-color="#7cf7d0"/>
+                        <stop offset="0.48" stop-color="#39c6ff"/>
+                        <stop offset="1" stop-color="#6770ff"/>
+                    </linearGradient>
+                    <filter id="aaGlow">
+                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <circle cx="60" cy="60" r="45" fill="#06111a" stroke="url(#aaLogoGrad)" stroke-width="5" filter="url(#aaGlow)"/>
+                <path d="M29 64c17-1 34-8 46-21 4-4 8-9 11-15" fill="none" stroke="#7cf7d0" stroke-width="3.2" stroke-linecap="round"/>
+                <path d="M34 42c13 3 24 11 31 22 5 8 9 17 16 24" fill="none" stroke="#39c6ff" stroke-width="3.2" stroke-linecap="round"/>
+                <path d="M33 78c13-2 25-1 36 3 7 2 13 6 19 11" fill="none" stroke="#6770ff" stroke-width="3.2" stroke-linecap="round"/>
+                <path d="M61 27c-5 11-5 23-1 34 3 9 8 18 16 27" fill="none" stroke="#dffeff" stroke-opacity=".72" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="92" cy="28" r="3.5" fill="#7cf7d0"/>
+            </svg>
+        </div>
+        <div class="aa-brand-wordmark">
+            <div class="aa-brand-name"><span>AirAware</span> <em>INDIA</em></div>
+            <div class="aa-brand-tagline">Clean Air. Smarter Tomorrows.</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.sidebar.caption("Environmental ML research platform")
 
 st.sidebar.divider()
@@ -3279,14 +3528,21 @@ st.markdown(
 
 
 
-st.title("🌍 AirAware India")
-
-st.caption(
-
-    "Machine learning for short-term air-quality forecasting "
-
-    "and understandable environmental insights."
-
+st.markdown(
+    """
+    <div class="aa-main-header">
+        <div class="aa-main-kicker">ENVIRONMENTAL INTELLIGENCE PLATFORM</div>
+        <div class="aa-main-title"><span>AirAware</span> <strong>India</strong></div>
+        <div class="aa-main-subtitle">Real-time air quality. Smarter insights. Healthier tomorrows.</div>
+        <div class="aa-feature-row">
+            <div class="aa-feature-pill"><span class="aa-pill-dot cyan"></span>Live Monitoring</div>
+            <div class="aa-feature-pill"><span class="aa-pill-dot blue"></span>AI Forecasting</div>
+            <div class="aa-feature-pill"><span class="aa-pill-dot violet"></span>Historical Analysis</div>
+            <div class="aa-feature-pill"><span class="aa-pill-dot green"></span>Environmental Insights</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -3743,22 +3999,16 @@ if page == "Latest Air":
 
 
 
+        insight_html = textwrap.dedent(f"""
+<div class="aa-insight">
+<strong>{insight}</strong><br><br>
+{guidance}
+</div>
+""").strip()
+
         st.markdown(
-
-            f"""
-
-            <div class="aa-insight">
-
-                <strong>{insight}</strong><br><br>
-
-                {guidance}
-
-            </div>
-
-            """,
-
+            insight_html,
             unsafe_allow_html=True,
-
         )
 
 
@@ -3809,20 +4059,15 @@ if page == "Latest Air":
 
 
 
+            outlook_html = textwrap.dedent(f"""
+<div class="aa-note" style="margin-top:14px;">
+<strong>Tomorrow's outlook:</strong> {outlook}
+</div>
+""").strip()
+
             st.markdown(
-
-                f"""
-
-                <div class="aa-note" style="margin-top:14px;">
-
-                    <strong>Tomorrow's outlook:</strong> {outlook}
-
-                </div>
-
-                """,
-
+                outlook_html,
                 unsafe_allow_html=True,
-
             )
 
 
@@ -3845,32 +4090,21 @@ if page == "Latest Air":
 
     st.markdown("### Data & Research Note")
 
+    research_note_html = textwrap.dedent("""
+<div class="aa-note">
+<strong>Data source:</strong> OpenAQ monitoring data.<br><br>
+<strong>Forecast:</strong> AirAware Random Forest model trained on historical
+Indian air-quality observations.<br><br>
+<strong>Important limitation:</strong> Official CPCB AQI uses prescribed
+averaging periods and sufficient observations. AirAware's current live estimate
+is therefore labelled an <strong>estimated CPCB-style AQI</strong>.
+Current monitoring data may also be delayed.
+</div>
+""").strip()
+
     st.markdown(
-
-        """
-
-        <div class="aa-note">
-
-        <strong>Data source:</strong> OpenAQ monitoring data.<br><br>
-
-        <strong>Forecast:</strong> AirAware Random Forest model trained on historical
-
-        Indian air-quality observations.<br><br>
-
-        <strong>Important limitation:</strong> Official CPCB AQI uses prescribed
-
-        averaging periods and sufficient observations. AirAware's current live estimate
-
-        is therefore labelled an <strong>estimated CPCB-style AQI</strong>.
-
-        Current monitoring data may also be delayed.
-
-        </div>
-
-        """,
-
+        research_note_html,
         unsafe_allow_html=True,
-
     )
 
 
@@ -4299,38 +4533,24 @@ elif page == "Model Performance":
 
 
 
+    model_metrics_html = textwrap.dedent("""
+<div class="aa-note">
+<strong>MAE — 16.20 AQI points</strong><br>
+On average, the model's prediction differs from the actual next-day AQI
+by about 16 AQI points on the held-out test set.<br><br>
+
+<strong>R² — 0.883</strong><br>
+The model explains a large proportion of the variation in next-day AQI
+within this test set.<br><br>
+
+These values describe performance on the historical test data.
+They should <strong>not</strong> be interpreted as "88.3% accuracy."
+</div>
+""").strip()
+
     st.markdown(
-
-        """
-
-        <div class="aa-note">
-
-        <strong>MAE — 16.20 AQI points</strong><br>
-
-        On average, the model's prediction differs from the actual next-day AQI
-
-        by about 16 AQI points on the held-out test set.<br><br>
-
-
-
-        <strong>R² — 0.883</strong><br>
-
-        The model explains a large proportion of the variation in next-day AQI
-
-        within this test set.<br><br>
-
-
-
-        These values describe performance on the historical test data.
-
-        They should <strong>not</strong> be interpreted as "88.3% accuracy."
-
-        </div>
-
-        """,
-
+        model_metrics_html,
         unsafe_allow_html=True,
-
     )
 
 
