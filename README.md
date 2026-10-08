@@ -65,12 +65,15 @@ Random Forest Forecasting Model
 ## Dashboard
 
 ### Latest Air
+
 ![AirAware Latest Air](docs/screenshots/latest-air.png)
 
 ### Historical Research
+
 ![AirAware Historical Research](docs/screenshots/historical-research.png)
 
 ### Model Performance
+
 ![AirAware Model Performance](docs/screenshots/model-performance.png)
 
 ## Machine Learning
