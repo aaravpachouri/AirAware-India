@@ -21,6 +21,13 @@ BASE_URL = "https://api.openaq.org/v3"
 MAX_STATION_AGE_DAYS = 14
 LOCATION_PAGE_SIZE = 1000
 
+if not API_KEY:
+    try:
+        import streamlit as st
+        API_KEY = st.secrets.get("OPENAQ_API_KEY")
+    except Exception:
+        API_KEY = None
+
 
 # ============================================================
 # CPCB-STYLE BREAKPOINTS
