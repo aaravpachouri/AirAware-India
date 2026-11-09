@@ -4530,10 +4530,10 @@ elif page == "Model Performance":
 
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
-<strong>Chronological test MAE — 16.21 AQI points</strong><br>
+<strong>Chronological test MAE — 16.41 AQI points</strong><br>
 The freshly trained model's average absolute error was 16.41 AQI points on 8,220 held-out observations.<br><br>
 
-<strong>Chronological test R² — 0.898</strong><br>
+<strong>Chronological test R² — 0.890</strong><br>
 This describes variation explained relative to a constant-mean predictor. It is not a percentage accuracy score.<br><br>
 
 <strong>Persistence baseline MAE — 18.81 AQI points</strong><br>
