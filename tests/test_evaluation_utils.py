@@ -5,6 +5,24 @@ import pytest
 from src.evaluation_utils import FEATURES, chronological_split
 
 
+EXPECTED_DASHBOARD_FEATURE_ORDER = [
+    "City",
+    "PM2.5",
+    "PM10",
+    "NO2",
+    "CO",
+    "SO2",
+    "O3",
+    "AQI",
+    "Previous_Day_AQI",
+    "AQI_3Day_Avg",
+    "AQI_Change",
+    "Day",
+    "Month",
+    "DayOfWeek",
+]
+
+
 def make_frame(days: int = 20) -> pd.DataFrame:
     rows = []
     for day in pd.date_range("2020-01-01", periods=days, freq="D"):
@@ -12,6 +30,10 @@ def make_frame(days: int = 20) -> pd.DataFrame:
         row.update({feature: 1.0 for feature in FEATURES if feature != "City"})
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def test_feature_order_matches_historical_dashboard_contract():
+    assert FEATURES == EXPECTED_DASHBOARD_FEATURE_ORDER
 
 
 def test_split_keeps_train_and_test_chronological_and_target_windows_disjoint():
