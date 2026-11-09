@@ -49,9 +49,15 @@ jobs:
         run: python -m compileall -q app.py src
       - name: Run evaluation utility tests
         run: python -m pytest -q tests/test_evaluation_utils.py
-      - name: Evaluate checked-in historical model artifact
+      - name: Evaluate checked-in historical model artifact on the committed prepared dataset
         run: python src/evaluate_saved_model.py
-      - name: Retrain historical model on the repository dataset
+      - name: Download and checksum-verify raw historical dataset
+        run: python src/download_source_data.py
+      - name: Rebuild cleaned dataset without global imputation
+        run: python src/clean_data.py
+      - name: Rebuild next-day features while retaining pollutant missing values
+        run: python src/prepare_ml_data.py
+      - name: Retrain historical model with training-only imputation
         run: python src/train_model.py
       - name: Evaluate persistence baseline on the same held-out dates
         run: python src/evaluate_baseline.py
