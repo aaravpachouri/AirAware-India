@@ -166,6 +166,10 @@ A deterministic group split held out six complete cities (4,508 observations) fr
 
 The city-aware model had R² 0.545; the city-agnostic variant had R² 0.703. The three-day mean baseline MAE was 24.64. Removing the city feature improved the aggregate Random Forest score, but neither model beat persistence on this held-out-city split. Ahmedabad was especially difficult for both models. This fixed split does not prove performance for every unseen city, but it demonstrates that the temporal holdout score must not be generalized to cities outside the training set.
 
+### Live AQI aggregation guard
+
+The Latest Air page includes an optional coverage check based on OpenAQ's hourly sensor averages. It reports time-averaged pollutant values only after checking distinct hourly coverage and the pollutant-specific averaging window. PM2.5, PM10, NO2, and SO2 use 24-hour means; CO and O3 use a complete 8-hour rolling mean. The minimum data gate requires 16 distinct valid hourly observations in the recent 24-hour window, and an overall estimate requires at least three eligible pollutants including PM2.5 or PM10. This optional check does not replace the default live snapshot or forecast, and its output is an OpenAQ-derived research estimate—not an official CPCB value. The live station forecast still needs prospective station-aligned evaluation.
+
 ### Separate live forecast model — historical proxy evaluation
 
 The live dashboard's model is trained on six features: current AQI, PM2.5, PM10, day, month, and day of week. The training script now uses a chronological split and a median imputer fitted only on the training rows. Metrics below describe a held-out historical city-day task, not future observations from a selected live station.
