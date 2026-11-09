@@ -31,7 +31,10 @@ def build_live_forecast_features(
             )
         normalized[feature] = value
 
-    observed_at = pd.Timestamp(timestamp)
+    try:
+        observed_at = pd.Timestamp(timestamp)
+    except (TypeError, ValueError):
+        raise ValueError("Forecast requires a valid measurement timestamp.") from None
     if pd.isna(observed_at):
         raise ValueError("Forecast requires a valid measurement timestamp.")
 
