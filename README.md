@@ -125,7 +125,13 @@ Tomorrow's AQI = Today's AQI
 
 ### Reproduce the historical evaluation
 
-Run these commands from the repository root after ensuring the historical dataset is available at `data/ml_data.csv`:
+Run these commands from the repository root after ensuring the historical dataset is available at `data/ml_data.csv`. Install the evaluation dependencies (including Matplotlib for the prediction plot) with:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Then run:
 
 ```bash
 python src/train_model.py
