@@ -6,6 +6,7 @@ on:
       - main
       - fix/reproducible-aqi-validation
       - research/validation-integrity-phase-1
+      - research/live-forecast-validation
     paths:
       - "app.py"
       - "src/**"
@@ -60,6 +61,8 @@ jobs:
         run: python src/prepare_ml_data.py
       - name: Retrain historical model with training-only imputation
         run: python src/train_model.py
+      - name: Evaluate live forecast model with chronological holdout
+        run: python src/train_live_model.py
       - name: Evaluate persistence baseline on the same held-out dates
         run: python src/evaluate_baseline.py
       - name: Evaluate predictions and generate plot
@@ -78,12 +81,13 @@ jobs:
             data/cleaned_city_day.csv
             data/ml_data.csv
             models/airaware_random_forest_v3.joblib
+            models/airaware_live_rf.joblib
             reports/actual_vs_predicted.png
           if-no-files-found: error
 
   publish-generated-artifacts:
     needs: evaluation-tests
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/reproducible-aqi-validation' || github.ref == 'refs/heads/research/validation-integrity-phase-1') && !contains(github.event.head_commit.message, 'Regenerate AQI dataset and temporal model')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/reproducible-aqi-validation' || github.ref == 'refs/heads/research/validation-integrity-phase-1' || github.ref == 'refs/heads/research/live-forecast-validation') && !contains(github.event.head_commit.message, 'Regenerate AQI dataset and temporal model')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -105,10 +109,11 @@ jobs:
           cp /tmp/airaware-regenerated/data/cleaned_city_day.csv data/cleaned_city_day.csv
           cp /tmp/airaware-regenerated/data/ml_data.csv data/ml_data.csv
           cp /tmp/airaware-regenerated/models/airaware_random_forest_v3.joblib models/airaware_random_forest_v3.joblib
+          cp /tmp/airaware-regenerated/models/airaware_live_rf.joblib models/airaware_live_rf.joblib
           cp /tmp/airaware-regenerated/reports/actual_vs_predicted.png reports/actual_vs_predicted.png
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/cleaned_city_day.csv data/ml_data.csv models/airaware_random_forest_v3.joblib reports/actual_vs_predicted.png
+          git add data/cleaned_city_day.csv data/ml_data.csv models/airaware_random_forest_v3.joblib models/airaware_live_rf.joblib reports/actual_vs_predicted.png
           if git diff --cached --quiet; then
             echo "Generated artifacts are already up to date."
             exit 0
