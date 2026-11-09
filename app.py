@@ -3411,6 +3411,11 @@ page = st.sidebar.radio(
 
 
 
+def _set_monitoring_station(label: str) -> None:
+    """Update the station selector before Streamlit reruns the page."""
+    st.session_state["monitoring_station_selector"] = label
+
+
 selected_location = None
 
 
@@ -3706,35 +3711,25 @@ if page == "Latest Air":
                         list(station_choices.keys()),
                         key=f"sensor_alternative_choice_{selected_location['id']}",
                     )
-                    if st.button(
-                        "Use this monitoring station",
-                        key=f"use_sensor_alternative_{selected_location['id']}",
-                    ):
-                        selected_station = station_choices[chosen_station_label]
-                        current_labels = {
-                            (
-                                (item.get("name") or ("Station " + str(item["id"])))
-                                + " — " + item.get("locality", "")
-                                if item.get("locality")
-                                else (item.get("name") or ("Station " + str(item["id"])))
-                            ): item
-                            for item in available_locations
-                        }
-                        target_label = next(
-                            (
-                                label for label, item in current_labels.items()
-                                if item.get("id") == selected_station.get("id")
-                            ),
-                            None,
+                    target_label = next(
+                        (
+                            label for label, item in location_options.items()
+                            if item.get("id") == station_choices[chosen_station_label].get("id")
+                        ),
+                        None,
+                    )
+                    if target_label is not None:
+                        st.button(
+                            "Use this monitoring station",
+                            key=f"use_sensor_alternative_{selected_location['id']}",
+                            on_click=_set_monitoring_station,
+                            args=(target_label,),
                         )
-                        if target_label is not None:
-                            st.session_state["monitoring_station_selector"] = target_label
-                            st.rerun()
-                        else:
-                            st.warning(
-                                "This station is no longer in the current recent-station list. "
-                                "Refresh the app and search again."
-                            )
+                    else:
+                        st.info(
+                            "This station is no longer in the current recent-station list. "
+                            "Refresh the app and search again."
+                        )
 
     with st.expander("Research check: time-averaged AQI data coverage", expanded=False):
         st.caption(
