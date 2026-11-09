@@ -27,7 +27,7 @@ The project was designed around two goals:
 
 ## 2. Research Question
 
-> Can lightweight machine-learning models provide useful short-term air-quality forecasts at local monitoring locations using pollutant and temporal features?
+> Can lightweight machine-learning models provide useful next-day AQI forecasts from historical city-level Indian observations, and how well do they generalize to later dates and unseen cities?
 
 The primary prediction target is:
 
