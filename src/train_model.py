@@ -23,6 +23,34 @@ from evaluation_utils import (
 )
 
 
+def build_model() -> Pipeline:
+    """Build a pipeline that learns imputation values from training rows only."""
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("city", OneHotEncoder(handle_unknown="ignore"), ["City"]),
+            (
+                "pollutant_imputer",
+                SimpleImputer(strategy="median", keep_empty_features=True),
+                POLLUTANT_FEATURES,
+            ),
+        ],
+        remainder="passthrough",
+    )
+    return Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            (
+                "model",
+                RandomForestRegressor(
+                    n_estimators=150,
+                    random_state=42,
+                    n_jobs=-1,
+                ),
+            ),
+        ]
+    )
+
+
 def main() -> None:
     df = load_ml_data()
     train, test, test_start = chronological_split(df)
@@ -44,7 +72,7 @@ def main() -> None:
     print(f"Testing rows: {len(test)}")
     print(f"First test feature date: {test_start.date()}")
     print(f"Last training feature date: {train['Date'].max().date()}")
-    print(f"Training pollutant missing values:")
+    print("Training pollutant missing values:")
     print(train[POLLUTANT_FEATURES].isna().sum().to_string())
     print(f"MAE: {mae:.2f} AQI points")
     print(f"R²: {r2:.3f}")
