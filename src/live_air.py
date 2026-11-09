@@ -1518,18 +1518,25 @@ def get_cpcb_averaged_air_quality(
     *,
     now: datetime | None = None,
 ) -> dict:
-    """Fetch recent hourly sensor data and assess CPCB-style AQI eligibility.
+    """Fetch full-location hourly sensor data and assess AQI data coverage.
 
-    This is an opt-in, additive research path; the existing latest-reading
-    dashboard path is not changed. OpenAQ hourly averages are converted to
-    breakpoint units before coverage validation.
+    Always refresh the canonical location detail so a shortened station object
+    from the station selector cannot silently omit pollutant sensors.
+    Existing live snapshot and forecast paths are not changed.
     """
     from cpcb_live_aqi import aggregate_hourly_observations
 
-    if location is None or not location.get("sensors"):
-        location = get_location(location_id)
+    # The station selector can hold a reduced location object. The detail
+    # endpoint is the authoritative source for the complete sensor inventory.
+    try:
+        full_location = get_location(location_id)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not load the complete sensor inventory for station "
+            f"{location_id}: {exc}"
+        ) from exc
 
-    mapping = _sensor_mapping(location)
+    mapping = _sensor_mapping(full_location)
     end = now or datetime.now(timezone.utc)
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
@@ -1537,51 +1544,87 @@ def get_cpcb_averaged_air_quality(
     start = end - timedelta(hours=24)
 
     observations: dict[str, list[dict[str, Any]]] = {}
-    errors: dict[str, str] = {}
-    for sensor_id, (pollutant, unit) in mapping.items():
-        if pollutant not in {"pm25", "pm10", "no2", "so2", "o3", "co"}:
-            continue
-        try:
-            response = _get(
-                f"/sensors/{sensor_id}/hours",
-                params={
-                    "datetime_from": start.isoformat(),
-                    "datetime_to": end.isoformat(),
-                    "limit": 100,
-                    "page": 1,
-                },
-            )
-            for item in response.get("results", []):
-                stamp_data = item.get("datetimeFrom") or {}
-                if not stamp_data:
-                    stamp_data = (
-                        (item.get("period") or {}).get("datetimeFrom") or {}
+    diagnostics: dict[str, dict[str, Any]] = {}
+    for pollutant in ("pm25", "pm10", "no2", "so2", "o3", "co"):
+        sensors = [
+            (sensor_id, unit)
+            for sensor_id, (mapped_pollutant, unit) in mapping.items()
+            if mapped_pollutant == pollutant
+        ]
+        diagnostic: dict[str, Any] = {
+            "sensor_count": len(sensors),
+            "sensor_ids": [sensor_id for sensor_id, _ in sensors],
+            "requests_succeeded": 0,
+            "hourly_records_returned": 0,
+            "valid_records_parsed": 0,
+            "errors": [],
+        }
+        for sensor_id, unit in sensors:
+            try:
+                response = _get(
+                    f"/sensors/{sensor_id}/hours",
+                    params={
+                        "datetime_from": start.isoformat(),
+                        "datetime_to": end.isoformat(),
+                        "limit": 100,
+                        "page": 1,
+                    },
+                )
+                diagnostic["requests_succeeded"] += 1
+                records = response.get("results", [])
+                diagnostic["hourly_records_returned"] += len(records)
+                for item in records:
+                    stamp_data = item.get("datetimeFrom") or {}
+                    if not stamp_data:
+                        stamp_data = (
+                            (item.get("period") or {}).get("datetimeFrom") or {}
+                        )
+                    timestamp = _parse_datetime(
+                        stamp_data.get("utc")
+                        or stamp_data.get("local")
+                        or (item.get("datetime") or {}).get("utc")
                     )
-                timestamp = _parse_datetime(
-                    stamp_data.get("utc")
-                    or stamp_data.get("local")
-                    or (item.get("datetime") or {}).get("utc")
+                    value = item.get("value")
+                    if timestamp is None or value is None:
+                        continue
+                    try:
+                        normalized = _convert_value(
+                            pollutant, float(value), unit
+                        )
+                    except (TypeError, ValueError, OverflowError):
+                        continue
+                    observations.setdefault(pollutant, []).append(
+                        {"timestamp": timestamp, "value": normalized}
+                    )
+                    diagnostic["valid_records_parsed"] += 1
+            except Exception as exc:
+                diagnostic["errors"].append(
+                    f"sensor {sensor_id}: {str(exc)[:200]}"
                 )
-                value = item.get("value")
-                if timestamp is None or value is None:
-                    continue
-                try:
-                    normalized = _convert_value(pollutant, float(value), unit)
-                except (TypeError, ValueError):
-                    continue
-                observations.setdefault(pollutant, []).append(
-                    {"timestamp": timestamp, "value": normalized}
-                )
-        except Exception as exc:
-            errors[pollutant] = str(exc)[:240]
+        diagnostics[pollutant] = diagnostic
 
     result = aggregate_hourly_observations(observations, now=end)
     result["location_id"] = location_id
     result["location"] = (
-        (location or {}).get("name") or f"Station {location_id}"
+        full_location.get("name") or f"Station {location_id}"
     )
     result["source"] = "OpenAQ hourly sensor averages"
-    result["source_errors"] = errors
+    result["sensor_diagnostics"] = diagnostics
+    for pollutant, metadata in result["coverage"].items():
+        diagnostic = diagnostics[pollutant]
+        if diagnostic["sensor_count"] == 0:
+            result["rejected_pollutants"][pollutant] = (
+                "station metadata contains no sensor for this pollutant"
+            )
+        elif diagnostic["hourly_records_returned"] == 0:
+            if diagnostic["errors"]:
+                result["rejected_pollutants"][pollutant] = (
+                    "hourly request returned no records; see sensor diagnostics"
+                )
+            else:
+                result["rejected_pollutants"][pollutant] = (
+                    "station has sensor metadata but no hourly records in the selected window"
+                )
     return result
 
 
