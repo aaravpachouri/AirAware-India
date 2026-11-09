@@ -126,6 +126,7 @@ GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retraine
 | Test MAE | **16.41 AQI points** |
 | Test R² | **0.890** |
 | Persistence baseline MAE | **18.81 AQI points** |
+| Three-day mean baseline MAE | **22.70 AQI points** |
 
 The model's MAE is about 12.8% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
 
