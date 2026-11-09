@@ -382,11 +382,11 @@ The historical model was trained on city-level historical observations. Live dat
 
 ### AQI limitations
 
-The live estimate does not necessarily reproduce the official averaging procedure used for government AQI reporting.
+The live estimate does not necessarily reproduce the official averaging procedure used for government AQI reporting. OpenAQ unit conversion uses conventional 25 °C / 1 atm approximations for gas measurements reported in ppb or ppm.
 
 ### Forecast limitations
 
-The persistence baseline is strong, showing that short-horizon air-quality forecasting is inherently challenging.
+The persistence baseline is strong, showing that short-horizon air-quality forecasting is inherently challenging. The separate live station forecast uses a different model and input distribution; it has not yet been validated against subsequent measurements from the selected station, so the historical city-day metrics do not establish live forecast accuracy.
 
 ### Distribution limitations
 
@@ -402,8 +402,8 @@ Live station measurements can be delayed or unavailable.
 
 Possible extensions include:
 
-- stronger temporal validation
-- city-held-out evaluation
+- repeated city-held-out splits and model-family benchmarks
+- station-aligned validation of live forecasts
 - station-specific models
 - meteorological features
 - probabilistic forecasts
@@ -430,11 +430,13 @@ src/train_model.py
 src/train_live_model.py
 src/evaluate_saved_model.py
 src/evaluate_baseline.py
+src/evaluate_city_holdout.py
 src/evaluate_predictions.py
 src/feature_importance.py
 src/city_evaluation.py
 src/live_air.py
 src/live_forecast.py
+src/live_forecast_features.py
 ```
 
 Rebuild the research model reproducibly with:
