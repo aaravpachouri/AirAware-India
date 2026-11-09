@@ -15,6 +15,7 @@ AirAware explores whether a lightweight machine-learning model can provide usefu
 > **Can lightweight machine-learning models provide useful short-term air-quality forecasts at local monitoring locations using pollutant and temporal features?**
 
 See the [research protocol](docs/RESEARCH_PROTOCOL.md) for the evaluation rules, validation splits, baselines, and limitations.
+Dataset provenance and intended-use limitations are documented in the [dataset card](docs/DATA_CARD.md).
 
 ## What It Does
 
