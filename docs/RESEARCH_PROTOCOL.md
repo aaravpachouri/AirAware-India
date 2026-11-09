@@ -78,7 +78,7 @@ Missing pollutant values must never be silently replaced with zero: zero is a re
 
 ## Current limitations and next experiments
 
-The project now has a chronological evaluation, a three-day-mean baseline, calendar-aware rolling features, unit-normalization tests, and a deterministic city-held-out evaluation. The first city-aware Random Forest result on held-out cities (MAE 28.25) is worse than persistence (MAE 22.19), so cross-city generalization is not established. The current experiment compares city-aware and city-agnostic Random Forests; live station forecasts remain a separate, experimental task and must not inherit the historical model's accuracy claim.
+The project now has a chronological evaluation, a three-day-mean baseline, calendar-aware rolling features, unit-normalization tests, a dataset card, and a deterministic city-held-out evaluation. On the fixed held-out-city split, the city-aware Random Forest MAE was 28.25, the city-agnostic variant was 24.64, and persistence was 22.19. Neither Random Forest beat persistence, and Ahmedabad was a difficult transfer case. Cross-city generalization is therefore not established. The next research priority is to benchmark additional models and evaluate the separate live station forecast against time-aligned subsequent station observations.
 
 ## Dataset provenance
 
