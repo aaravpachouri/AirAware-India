@@ -4519,20 +4519,21 @@ elif page == "Model Performance":
 
     with c2:
 
-        st.metric("Previously reported MAE", "16.20")
+        st.metric("Chronological test MAE", "16.18")
 
 
 
     with c3:
 
-        st.metric("Previously reported R²", "0.883")
+        st.metric("Chronological test R²", "0.898")
 
 
 
     st.warning(
-        "These are historical metrics from an earlier evaluation run. "
-        "They have not yet been reproduced using the corrected date-based "
-        "evaluation split, so they are not presented as currently validated results."
+        "Preliminary reproducible result: these metrics were regenerated on a "
+        "chronological holdout, but the prepared dataset's pollutant medians were "
+        "calculated before the split. This may introduce preprocessing leakage. "
+        "A raw-data rerun with train-only imputation is still needed."
     )
 
 
@@ -4543,13 +4544,16 @@ elif page == "Model Performance":
 
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
-<strong>Previously reported MAE — 16.20 AQI points</strong><br>
-This was the average absolute error reported by an earlier evaluation run.<br><br>
+<strong>Test MAE — 16.18 AQI points</strong><br>
+The model's average absolute error on 8,368 held-out observations was 16.18 AQI points.<br><br>
 
-<strong>Previously reported R² — 0.883</strong><br>
-This was the R² reported by an earlier evaluation run. R² is not a percentage accuracy score.<br><br>
+<strong>Test R² — 0.898</strong><br>
+This describes variation explained relative to a constant-mean predictor. It is not a percentage accuracy score.<br><br>
 
-The evaluation code now uses a shared chronological split designed to keep training target windows separate from the test period. The metrics above must be recalculated on that split before they can be reported as validated results.
+<strong>Persistence baseline MAE — 18.94 AQI points</strong><br>
+Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same test rows.<br><br>
+
+The training set contained 14,597 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Results vary by city and should be interpreted alongside the preprocessing limitation above.
 </div>
 """).strip()
 
