@@ -51,6 +51,8 @@ from live_air import (
 
 )
 
+from live_forecast_features import build_live_forecast_features
+
 
 
 
@@ -3710,29 +3712,15 @@ if page == "Latest Air":
 
 
 
-        forecast_features = pd.DataFrame(
-
-            [
-
-                {
-
-                    "AQI": current_aqi,
-
-                    "PM2.5": pollutants.get("pm25", 0),
-
-                    "PM10": pollutants.get("pm10", 0),
-
-                    "Day": timestamp.day,
-
-                    "Month": timestamp.month,
-
-                    "DayOfWeek": timestamp.weekday(),
-
-                }
-
-            ]
-
-        )
+        try:
+            forecast_features = build_live_forecast_features(
+                current_aqi=current_aqi,
+                pollutants=pollutants,
+                timestamp=timestamp,
+            )
+        except ValueError as error:
+            st.warning(f"Forecast unavailable: {error}")
+        else:
 
 
 
