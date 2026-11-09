@@ -166,6 +166,26 @@ A deterministic group split held out six complete cities (4,508 observations) fr
 
 The city-aware model had R² 0.545; the city-agnostic variant had R² 0.703. The three-day mean baseline MAE was 24.64. Removing the city feature improved the aggregate Random Forest score, but neither model beat persistence on this held-out-city split. Ahmedabad was especially difficult for both models. This fixed split does not prove performance for every unseen city, but it demonstrates that the temporal holdout score must not be generalized to cities outside the training set.
 
+### Separate live forecast model — historical proxy evaluation
+
+The live dashboard's model is trained on six features: current AQI, PM2.5, PM10, day, month, and day of week. The training script now uses a chronological split and a median imputer fitted only on the training rows. Metrics below describe a held-out historical city-day task, not future observations from a selected live station.
+
+| Evaluation detail | Result |
+|---|---:|
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
+| Last training feature date | 2019-05-24 |
+| First test feature date | 2019-05-26 |
+| Test MAE | 16.96 AQI points |
+| Test R² | 0.877 |
+| Persistence baseline MAE | 18.81 AQI points |
+| Three-day mean baseline MAE | 22.70 AQI points |
+| Deployment model size | 36.4 MiB |
+
+On this historical test, the compact live-model pipeline reduced MAE by approximately 9.8% relative to persistence. The deployable model is refit on all eligible historical rows only after the held-out metrics are calculated. It uses 100 trees with maximum depth 16 and minimum leaf size 3 to reduce memory footprint compared with the previous 318 MiB artifact.
+
+This evaluation does not remove the domain gap between historical city-day AQI and current station-level estimates. The live forecast must remain labelled experimental until it is validated against time-aligned subsequent measurements from the same stations.
+
 ### Training and test protocol
 
 - The prediction target is AQI on the next calendar day.

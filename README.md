@@ -137,6 +137,22 @@ The model's MAE is about 12.8% lower than the persistence baseline on the same h
 
 **Preprocessing method:** pollutant missing values are retained in the prepared dataset and imputed inside the model pipeline using medians fitted only on the training rows. The raw source file is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847` before preprocessing. The source CSV itself is not committed to the repository.
 
+### Separate live forecast model (historical proxy evaluation)
+
+The live dashboard uses a separate compact Random Forest with the six inputs AQI, PM2.5, PM10, day, month, and day of week. It was evaluated using the same chronological date boundary and training-only pollutant imputation, then refit on all eligible historical rows for deployment.
+
+| Metric | Result |
+|---|---:|
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
+| Test MAE | 16.96 AQI points |
+| Test R² | 0.877 |
+| Persistence baseline MAE | 18.81 AQI points |
+| Three-day mean baseline MAE | 22.70 AQI points |
+| Deployment artifact size | 36.4 MiB |
+
+The model reduced MAE by about 9.8% relative to persistence on this historical city-day test. This is a useful proxy evaluation, **not validation of forecasts against future observations from a live monitoring station**. The live UI explicitly labels the forecast as experimental. See the [research report](docs/AirAware_Research_Report.md) for details and limitations.
+
 The baseline is a persistence model:
 
 ```text
@@ -268,7 +284,8 @@ AirAware-India/
     ├── test_data_preparation.py
     ├── test_city_holdout.py
     ├── test_live_air_units.py
-    └── test_live_forecast_features.py
+    ├── test_live_forecast_features.py
+    └── test_live_model_training.py
 ```
 
 ## Tech Stack
