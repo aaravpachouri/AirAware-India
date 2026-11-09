@@ -3693,9 +3693,10 @@ if page == "Latest Air":
                 )
                 station_choices = {
                     (
-                        f"{item.get('name', f'Station {item['id']}')} — "
-                        f"{item.get('locality') or item.get('city') or 'Same city'} "
-                        f"(ID {item['id']})"
+                        (item.get("name") or ("Station " + str(item["id"])))
+                        + " — "
+                        + (item.get("locality") or item.get("city") or "Same city")
+                        + " (ID " + str(item["id"]) + ")"
                     ): item
                     for item in candidates
                 }
@@ -3712,9 +3713,10 @@ if page == "Latest Air":
                         selected_station = station_choices[chosen_station_label]
                         current_labels = {
                             (
-                                f"{item.get('name', f'Station {item['id']}')} — {item.get('locality')}"
+                                (item.get("name") or ("Station " + str(item["id"])))
+                                + " — " + item.get("locality", "")
                                 if item.get("locality")
-                                else item.get("name", f"Station {item['id']}")
+                                else (item.get("name") or ("Station " + str(item["id"])))
                             ): item
                             for item in available_locations
                         }
