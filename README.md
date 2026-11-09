@@ -105,13 +105,15 @@ The final historical model uses:
 - Month
 - Day of week
 
-### Test results
+### Previously reported results
 
-| Metric | Result |
+| Metric | Previously reported result |
 |---|---:|
-| Test MAE | **16.20 AQI points** |
-| Test R² | **0.883** |
-| Baseline MAE | **18.39 AQI points** |
+| Test MAE | 16.20 AQI points |
+| Test R² | 0.883 |
+| Persistence baseline MAE | 18.39 AQI points |
+
+These figures come from an earlier evaluation run. The evaluation split has since been corrected to use chronological dates and avoid overlap between the training target window and the test feature window. **The figures above have not yet been reproduced with the corrected evaluation pipeline and should be treated as historical, not as the current validated result.**
 
 The baseline is a persistence model:
 
@@ -120,6 +122,20 @@ Tomorrow's AQI = Today's AQI
 ```
 
 **Important:** R² = 0.883 is not "88.3% accuracy."
+
+### Reproduce the historical evaluation
+
+Run these commands from the repository root after ensuring the historical dataset is available at `data/ml_data.csv`:
+
+```bash
+python src/train_model.py
+python src/evaluate_baseline.py
+python src/evaluate_predictions.py
+python src/city_evaluation.py
+python src/feature_importance.py
+```
+
+The training and evaluation scripts now share the same date-aware split and feature definition. The scripts print fresh metrics for the dataset present on your machine. The raw historical dataset is not included in every checkout, so results cannot be regenerated without obtaining the source data and running the preparation pipeline.
 
 ## Feature Importance
 
