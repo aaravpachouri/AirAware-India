@@ -418,7 +418,41 @@ Live station measurements can be delayed or unavailable.
 
 ---
 
-## 15. Future Research
+## 15. Model-family benchmark and current evidence
+
+A reproducible benchmark compared city-aware and city-agnostic Random Forest and Ridge regression pipelines. All candidates were evaluated on identical rows within each fixed split, with imputation (and Ridge scaling) fitted inside each training pipeline.
+
+### Chronological holdout
+
+| Candidate | MAE (AQI points) | R² |
+|---|---:|---:|
+| City-agnostic Random Forest | **16.20** | 0.895 |
+| City-aware Random Forest | 16.41 | 0.890 |
+| City-agnostic Ridge | 17.86 | 0.869 |
+| City-aware Ridge | 18.54 | 0.868 |
+| Persistence | 18.81 | — |
+| Three-day mean | 22.70 | — |
+
+### Fixed unseen-city holdout
+
+| Candidate | MAE (AQI points) | R² |
+|---|---:|---:|
+| City-agnostic Ridge | **23.49** | 0.782 |
+| City-aware Ridge | 24.72 | 0.757 |
+| City-agnostic Random Forest | 24.64 | 0.703 |
+| City-aware Random Forest | 28.25 | 0.545 |
+| Persistence | **22.19** | — |
+| Three-day mean | 24.64 | — |
+
+The fixed city holdout includes Ahmedabad, Chennai, Coimbatore, Ernakulam, Jorapokhar, and Thiruvananthapuram (4,508 test observations). The city-agnostic Ridge model is the strongest machine-learning candidate on this particular holdout, but it does not beat persistence. Ahmedabad is a major error contributor, especially for the Random Forest candidates. This indicates a transfer problem rather than a solved cross-city forecasting task.
+
+The 0.21-point MAE difference between the two Random Forest candidates on the chronological split is not enough to justify a model replacement without repeated temporal folds and paired uncertainty intervals. The deployed model is therefore not changed by this benchmark.
+
+### Live AQI validity gate
+
+The current live implementation applies pollutant breakpoints to the latest available sensor values. CPCB guidance specifies 24-hour averages for most pollutants, 8-hour averages for CO and O3, at least 16 hours of data for a pollutant sub-index, and at least three pollutants (including PM2.5 or PM10) for an overall AQI. A latest-value snapshot cannot establish these conditions. AirAware must continue to label its live calculation as an estimate and should withhold an overall AQI when the required averaging windows and coverage cannot be verified. OpenAQ exposes hourly and daily aggregates and coverage metadata that can support a future compliant implementation, but the application must validate the returned time windows and completeness rather than assume they are sufficient.
+
+## 16. Future Research
 
 Possible extensions include:
 
@@ -435,7 +469,7 @@ Possible extensions include:
 
 ---
 
-## 16. Reproducibility
+## 17. Reproducibility
 
 The repository contains the main data-processing, training, evaluation, and application code.
 
@@ -484,7 +518,7 @@ Live monitoring requires an OpenAQ API key configured through the local environm
 
 ---
 
-## 17. Conclusion
+## 18. Conclusion
 
 AirAware India demonstrates a complete lightweight environmental ML workflow:
 
