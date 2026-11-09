@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 DATA_PATH = DATA_DIR / "city_day.csv"
 SOURCE_URL = (
-    "https://raw.githubusercontent.com/learning-monk/datasets/master/"
-    "ENVIRONMENT/Indian_cities_daily_pollution_2015-2020.csv"
+    "https://raw.githubusercontent.com/govindlabhala-cell/"
+    "India-Air-Quality-EDA/main/dataset/city_day.csv"
 )
 EXPECTED_SHA256 = "0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847"
 
