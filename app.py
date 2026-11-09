@@ -42,6 +42,7 @@ from live_air import (
     get_available_locations,
 
     get_live_air_quality,
+    get_cpcb_averaged_air_quality,
 
     estimate_cpcb_style_aqi,
 
@@ -3639,6 +3640,62 @@ if page == "Latest Air":
 
 
     pollutants = live["pollutants"]
+
+    with st.expander("Research check: time-averaged AQI data coverage", expanded=False):
+        st.caption(
+            "Optional validation fetches the selected station's hourly OpenAQ data. "
+            "It does not change the existing live reading or forecast."
+        )
+        if st.button(
+            "Check averaging windows and coverage",
+            key=f"check_cpcb_coverage_{selected_location['id']}",
+        ):
+            with st.spinner("Checking recent hourly measurements…"):
+                try:
+                    coverage_result = get_cpcb_averaged_air_quality(
+                        selected_location["id"],
+                        selected_location,
+                    )
+                except Exception as coverage_error:
+                    st.error("Could not validate time-averaged coverage.")
+                    st.caption(str(coverage_error)[:300])
+                else:
+                    if coverage_result["eligible"]:
+                        avg_aqi = estimate_cpcb_style_aqi(
+                            coverage_result["averages"]
+                        )
+                        st.success(
+                            "Coverage gate passed for a CPCB-style estimate. "
+                            "This is still an OpenAQ-derived estimate, not an official CPCB reading."
+                        )
+                        st.metric(
+                            "Time-averaged estimated AQI",
+                            int(round(avg_aqi["aqi"]))
+                            if avg_aqi.get("aqi") is not None else "Unavailable",
+                        )
+                    else:
+                        st.warning(
+                            "Insufficient verified hourly coverage to calculate an overall "
+                            "time-averaged AQI. The existing dashboard reading is unchanged."
+                        )
+                    st.write("Pollutant coverage")
+                    st.json({
+                        pollutant: {
+                            **metadata,
+                            "average": coverage_result["averages"].get(pollutant),
+                            "rejection": coverage_result["rejected_pollutants"].get(pollutant),
+                        }
+                        for pollutant, metadata in coverage_result["coverage"].items()
+                    })
+                    if coverage_result.get("source_errors"):
+                        st.caption(
+                            "Some sensor requests failed: "
+                            + "; ".join(
+                                f"{key}: {value}"
+                                for key, value in coverage_result["source_errors"].items()
+                            )
+                        )
+
 
 
 

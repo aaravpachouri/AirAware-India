@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from typing import Any
 
@@ -1506,6 +1506,83 @@ def get_latest_measurements(
 
 
 
+
+
+# ============================================================
+# TIME-AVERAGED LIVE AQI INPUTS
+# ============================================================
+
+def get_cpcb_averaged_air_quality(
+    location_id: int,
+    location: dict | None = None,
+    *,
+    now: datetime | None = None,
+) -> dict:
+    """Fetch recent hourly sensor data and assess CPCB-style AQI eligibility.
+
+    This is an opt-in, additive research path; the existing latest-reading
+    dashboard path is not changed. OpenAQ hourly averages are converted to
+    breakpoint units before coverage validation.
+    """
+    from cpcb_live_aqi import aggregate_hourly_observations
+
+    if location is None or not location.get("sensors"):
+        location = get_location(location_id)
+
+    mapping = _sensor_mapping(location)
+    end = now or datetime.now(timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    end = end.astimezone(timezone.utc)
+    start = end - timedelta(hours=24)
+
+    observations: dict[str, list[dict[str, Any]]] = {}
+    errors: dict[str, str] = {}
+    for sensor_id, (pollutant, unit) in mapping.items():
+        if pollutant not in {"pm25", "pm10", "no2", "so2", "o3", "co"}:
+            continue
+        try:
+            response = _get(
+                f"/sensors/{sensor_id}/hours",
+                params={
+                    "datetime_from": start.isoformat(),
+                    "datetime_to": end.isoformat(),
+                    "limit": 100,
+                    "page": 1,
+                },
+            )
+            for item in response.get("results", []):
+                stamp_data = item.get("datetimeFrom") or {}
+                if not stamp_data:
+                    stamp_data = (
+                        (item.get("period") or {}).get("datetimeFrom") or {}
+                    )
+                timestamp = _parse_datetime(
+                    stamp_data.get("utc")
+                    or stamp_data.get("local")
+                    or (item.get("datetime") or {}).get("utc")
+                )
+                value = item.get("value")
+                if timestamp is None or value is None:
+                    continue
+                try:
+                    normalized = _convert_value(pollutant, float(value), unit)
+                except (TypeError, ValueError):
+                    continue
+                observations.setdefault(pollutant, []).append(
+                    {"timestamp": timestamp, "value": normalized}
+                )
+        except Exception as exc:
+            errors[pollutant] = str(exc)[:240]
+
+    result = aggregate_hourly_observations(observations, now=end)
+    result["location_id"] = location_id
+    result["location"] = (
+        (location or {}).get("name") or f"Station {location_id}"
+    )
+    result["source"] = "OpenAQ hourly sensor averages"
+    result["source_errors"] = errors
+    return result
 
 
 # ============================================================

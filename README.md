@@ -21,6 +21,7 @@ Dataset provenance and intended-use limitations are documented in the [dataset c
 
 - Live monitoring-station discovery across India
 - Latest pollutant measurements through OpenAQ
+- Optional time-averaged live AQI coverage check with explicit hourly-data requirements
 - Estimated CPCB-style AQI calculation
 - Next-day AQI forecasting with Random Forest
 - Historical city-level air-quality exploration
@@ -70,6 +71,14 @@ Random Forest Forecasting Model
 **Public app:** https://airaware-india-s5nokzxaczphwtyzwhscug.streamlit.app/
 
 The Streamlit Community Cloud app was verified in a private/incognito browser session without a sign-in prompt. Live observations and forecasts depend on the availability and freshness of the upstream monitoring data.
+
+## Live-data validity
+
+The main dashboard's current reading and next-day forecast remain an **experimental latest-station-reading workflow**. They are not official CPCB observations, and the historical city-day evaluation is not station-level forecast validation.
+
+The Latest Air page includes an optional **Research check: time-averaged AQI data coverage** panel. When selected, it fetches OpenAQ hourly averages for the chosen station and checks the last 24 hours. PM2.5, PM10, NO2, and SO2 use a rolling 24-hour mean; CO and O3 require a complete consecutive 8-hour window. A pollutant is only accepted when at least 16 distinct hourly observations exist in the 24-hour window, and an overall estimated AQI is only shown when at least three pollutants including PM2.5 or PM10 pass the gate. The panel is additive: it does not alter the existing live reading or forecast.
+
+OpenAQ-derived values and this validation panel are **not official CPCB data**. They are a research estimate based on provider-supplied sensor measurements and supported unit conversions. See [OpenAQ measurement aggregation documentation](https://docs.openaq.org/resources/measurements) and the [CPCB AQI calculation guidance](https://airquality.cpcb.gov.in/ccr_docs/How_AQI_Calculated.pdf). Forecast accuracy at live stations remains unverified until predictions are recorded and compared with later observations from those same stations.
 
 ## Dashboard
 
