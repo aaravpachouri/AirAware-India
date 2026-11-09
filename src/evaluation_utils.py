@@ -1,8 +1,8 @@
 """Shared, reproducible dataset and chronological split helpers for AirAware.
 
-The target is next-calendar-day AQI. To avoid target-window overlap, training
-rows must end at least one calendar day before the first test feature date.
-The feature order intentionally matches app.py's historical prediction inputs.
+The target is next-calendar-day AQI. Training rows must end before the first
+test feature date's prior calendar day to avoid overlapping next-day targets.
+Pollutant NaNs are allowed because the model imputes them using training data.
 """
 from pathlib import Path
 
@@ -11,7 +11,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "ml_data.csv"
 
-# Keep this exact order in sync with the historical forecast input in app.py.
+# Keep this exact order in sync with app.py's historical forecast inputs.
 FEATURES = [
     "City",
     "PM2.5",
@@ -20,6 +20,17 @@ FEATURES = [
     "CO",
     "SO2",
     "O3",
+    "AQI",
+    "Previous_Day_AQI",
+    "AQI_3Day_Avg",
+    "AQI_Change",
+    "Day",
+    "Month",
+    "DayOfWeek",
+]
+
+POLLUTANT_FEATURES = ["PM2.5", "PM10", "NO2", "CO", "SO2", "O3"]
+NON_IMPUTABLE_FEATURES = [
     "AQI",
     "Previous_Day_AQI",
     "AQI_3Day_Avg",
@@ -43,9 +54,16 @@ def load_ml_data() -> pd.DataFrame:
         raise ValueError(
             "The ML dataset is missing required columns: " + ", ".join(missing)
         )
+
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Next_Day_AQI"] = pd.to_numeric(df["Next_Day_AQI"], errors="coerce")
-    df = df.dropna(subset=["Date", "Next_Day_AQI", *FEATURES])
+    for column in [*FEATURES, "Next_Day_AQI"]:
+        if column != "City":
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+
+    # Pollutant columns may be missing and are imputed inside the training
+    # pipeline. Targets, dates, and lag/rolling/calendar features may not.
+    required_observations = ["Date", "City", "Next_Day_AQI", *NON_IMPUTABLE_FEATURES]
+    df = df.dropna(subset=required_observations)
     df = df.sort_values(["Date", "City"]).reset_index(drop=True)
     if df.empty:
         raise ValueError("The ML dataset contains no valid dated target rows.")
