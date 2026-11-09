@@ -3718,36 +3718,15 @@ if page == "Latest Air":
                 pollutants=pollutants,
                 timestamp=timestamp,
             )
-        except ValueError as error:
-            st.warning(f"Forecast unavailable: {error}")
-        else:
-
-
-
-        try:
-
             live_model = load_live_model()
-
-
-
             tomorrow_prediction = float(
-
                 live_model.predict(forecast_features)[0]
-
             )
-
-
-
             tomorrow_prediction = round(
-
                 max(0, min(tomorrow_prediction, 500))
-
             )
-
         except Exception as error:
-
             st.warning(f"Forecast unavailable: {error}")
-
 
 
     hero_category = (
