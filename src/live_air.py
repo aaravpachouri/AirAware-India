@@ -1040,7 +1040,8 @@ def _convert_value(
         raise ValueError(f"Invalid concentration for {pollutant}: {value}")
 
     normalized_unit = (
-        unit.strip()
+        str(unit or "")
+        .strip()
         .lower()
         .replace("μ", "µ")
         .replace("³", "3")
