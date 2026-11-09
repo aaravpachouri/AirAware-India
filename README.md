@@ -228,45 +228,47 @@ The data-processing pipeline includes:
 
 ```text
 AirAware-India/
-│
 ├── app.py
 ├── README.md
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
-├── .gitignore
-│
 ├── data/
 │   ├── cleaned_city_day.csv
 │   └── ml_data.csv
-│
 ├── docs/
+│   ├── DATA_CARD.md
+│   ├── RESEARCH_PROTOCOL.md
+│   ├── AirAware_Research_Report.md
 │   └── screenshots/
-│
 ├── models/
 │   ├── airaware_random_forest_v3.joblib
 │   └── airaware_live_rf.joblib
-│
 ├── reports/
 │   ├── actual_vs_predicted.png
 │   ├── aqi_distribution.png
 │   ├── average_aqi_by_city.png
 │   └── pm25_vs_aqi.png
-│
-└── src/
-    ├── download_source_data.py
-    ├── clean_data.py
-    ├── eda.py
-    ├── prepare_ml_data.py
-    ├── train_model.py
-    ├── train_live_model.py
-    ├── evaluate_saved_model.py
-    ├── evaluate_baseline.py
-    ├── evaluate_predictions.py
-    ├── feature_importance.py
-    ├── city_evaluation.py
-    ├── live_air.py
-    └── live_forecast.py
+├── src/
+│   ├── download_source_data.py
+│   ├── clean_data.py
+│   ├── prepare_ml_data.py
+│   ├── train_model.py
+│   ├── train_live_model.py
+│   ├── evaluate_baseline.py
+│   ├── evaluate_city_holdout.py
+│   ├── evaluate_predictions.py
+│   ├── city_evaluation.py
+│   ├── evaluation_utils.py
+│   ├── live_air.py
+│   ├── live_forecast.py
+│   └── live_forecast_features.py
+└── tests/
+    ├── test_evaluation_utils.py
+    ├── test_data_preparation.py
+    ├── test_city_holdout.py
+    ├── test_live_air_units.py
+    └── test_live_forecast_features.py
 ```
 
 ## Tech Stack
