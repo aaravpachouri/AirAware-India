@@ -4539,6 +4539,9 @@ This describes variation explained relative to a constant-mean predictor. It is 
 <strong>Persistence baseline MAE — 18.81 AQI points</strong><br>
 Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same held-out rows. The model's MAE was about 12.8% lower.<br><br>
 
+<strong>Three-day mean baseline MAE — 22.70 AQI points</strong><br>
+A mean of the previous three consecutive daily AQI observations performed worse than persistence on this test window.<br><br>
+
 The training set contained 14,232 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Pollutant missing values are imputed using medians learned only from the training period. Performance still varies by city and the result applies to this historical dataset, not current air quality.
 </div>
 """).strip()
@@ -4549,6 +4552,19 @@ The training set contained 14,232 observations. The last training feature date w
     )
 
 
+
+    st.markdown("### Generalization to Unseen Cities")
+
+    st.warning(
+        "A separate deterministic city-held-out experiment tested 6 cities "
+        "that were excluded from training (4,508 observations). The city-aware "
+        "Random Forest achieved MAE 28.25 AQI points; a city-agnostic variant "
+        "achieved MAE 24.64; the persistence baseline achieved MAE 22.19. "
+        "Neither Random Forest beat persistence on this unseen-city split. "
+        "The current model is therefore not established as reliable for "
+        "cities absent from its training data. This test is distinct from "
+        "the chronological holdout above."
+    )
 
     st.markdown("### Model Inputs")
 
