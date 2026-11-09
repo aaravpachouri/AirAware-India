@@ -6,13 +6,21 @@ on:
       - main
       - fix/reproducible-aqi-validation
     paths:
-      - "src/evaluation_utils.py"
+      - "app.py"
+      - "src/**"
       - "tests/**"
+      - "data/ml_data.csv"
+      - "requirements.txt"
+      - "requirements-dev.txt"
       - ".github/workflows/aqi-evaluation-tests.yml"
   pull_request:
     paths:
-      - "src/evaluation_utils.py"
+      - "app.py"
+      - "src/**"
       - "tests/**"
+      - "data/ml_data.csv"
+      - "requirements.txt"
+      - "requirements-dev.txt"
       - ".github/workflows/aqi-evaluation-tests.yml"
 
 permissions:
@@ -21,6 +29,7 @@ permissions:
 jobs:
   evaluation-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -28,10 +37,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install test dependencies
-        run: python -m pip install --upgrade pip pandas pytest
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install project and evaluation dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
       - name: Compile application and research scripts
         run: python -m compileall -q app.py src
-
       - name: Run evaluation utility tests
         run: python -m pytest -q tests/test_evaluation_utils.py
+      - name: Retrain historical model on the repository dataset
+        run: python src/train_model.py
+      - name: Evaluate persistence baseline on the same held-out dates
+        run: python src/evaluate_baseline.py
+      - name: Evaluate predictions and generate plot
+        run: python src/evaluate_predictions.py
+      - name: Evaluate errors by city
+        run: python src/city_evaluation.py
+      - name: Report model feature importance
+        run: python src/feature_importance.py
