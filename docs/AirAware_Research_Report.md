@@ -135,7 +135,7 @@ This prevents future observations from being used to train the model before earl
 
 ## 6. Results
 
-GitHub Actions successfully retrained the historical Random Forest on the checked-in prepared dataset and evaluated it with the shared chronological split.
+GitHub Actions successfully evaluated the checked-in model artifact and retrained a fresh Random Forest using the shared chronological split. Both runs used the same held-out dates and prepared dataset.
 
 | Evaluation detail | Result |
 |---|---:|
@@ -143,24 +143,31 @@ GitHub Actions successfully retrained the historical Random Forest on the checke
 | Held-out test rows | 8,368 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Test MAE | 16.18 AQI points |
-| Test R² | 0.898 |
+| Checked-in artifact MAE | 11.39 AQI points |
+| Checked-in artifact R² | 0.938 |
+| Fresh chronological retrain MAE | 16.18 AQI points |
+| Fresh chronological retrain R² | 0.898 |
 | Persistence baseline MAE | 18.94 AQI points |
 
-The model's MAE was approximately 14.6% lower than the persistence baseline, measured on the same held-out rows. Performance varied across cities: test MAE ranged from 7.61 AQI points for Bengaluru to 42.95 for Ahmedabad. Aggregate metrics should not be interpreted as uniform performance across every location.
+The fresh retrain's MAE was approximately 14.6% lower than the persistence baseline, measured on the same held-out rows. Performance varied across cities: fresh-retrain test MAE ranged from 7.61 AQI points for Bengaluru to 42.95 for Ahmedabad.
+
+### Why the saved-model score is not yet trusted
+
+The checked-in model artifact scores much better than the fresh chronological retrain, but its original training cutoff and split method are not recorded. If it was trained on observations after the test period begins, its apparent holdout score may be contaminated by future-date exposure. We therefore report the result for transparency, not as proof of validated generalization.
 
 ### Preprocessing limitation
 
-The date-based split keeps training target windows separate from test feature dates. However, the prepared dataset was created after the earlier `clean_data.py` script filled missing pollutant values using medians calculated over the full dataset. Because this preprocessing occurred before the split, it can leak information from later dates into the training process.
+The prepared dataset was created after the earlier `clean_data.py` script filled missing pollutant values using medians calculated over the full dataset. Because this preprocessing occurred before the split, it can leak information from later dates into the training process.
 
-These results are therefore reproducible **preliminary metrics**, not a final leakage-controlled estimate. The next research step is to rebuild the dataset from the original raw observations and perform imputation using training-period data only, or explicitly use a complete-case policy. The raw source file `data/city_day.csv` is ignored by Git and was not available to this run, so that stricter rerun remains outstanding.
+These are reproducible **preliminary metrics**, not a final leakage-controlled estimate. The next research step is to rebuild the dataset from the original raw observations and perform imputation using training-period data only, or explicitly use a complete-case policy. The raw source file `data/city_day.csv` is ignored by Git and was not available to this run, so that stricter rerun remains outstanding.
 
-### Reproducing the current prepared-dataset evaluation
+### Reproducing the evaluation
 
-From the repository root, ensure `data/ml_data.csv` is present and run:
+From the repository root, ensure `data/ml_data.csv` and the model artifact are present, then run:
 
 ```bash
 pip install -r requirements-dev.txt
+python src/evaluate_saved_model.py
 python src/train_model.py
 python src/evaluate_baseline.py
 python src/evaluate_predictions.py
@@ -168,7 +175,7 @@ python src/city_evaluation.py
 python src/feature_importance.py
 ```
 
-The focused GitHub Actions workflow compiles the application and research scripts, runs the temporal-split regression tests, and executes these evaluation commands. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score.
+The focused GitHub Actions workflow downloads the model artifacts through Git LFS, compiles the application and research scripts, runs the temporal-split regression tests, evaluates the checked-in artifact, and runs the full retraining/evaluation sequence. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score.
 
 ---
 
