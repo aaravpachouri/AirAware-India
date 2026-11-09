@@ -6,6 +6,8 @@ Pollutant NaNs are allowed because the model imputes them using training data.
 """
 from pathlib import Path
 
+from sklearn.model_selection import GroupShuffleSplit
+
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,3 +103,37 @@ def chronological_split(
         raise AssertionError("Training labels may overlap the test feature window.")
 
     return train, test, test_start
+
+def city_holdout_split(
+    df: pd.DataFrame,
+    test_fraction: float = 0.2,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    """Split by city groups so no test city appears in model training."""
+    if not 0.0 < test_fraction < 1.0:
+        raise ValueError("test_fraction must be between 0 and 1.")
+
+    cities = sorted(df["City"].dropna().astype(str).unique())
+    if len(cities) < 2:
+        raise ValueError("At least two distinct cities are required for city holdout.")
+
+    splitter = GroupShuffleSplit(
+        n_splits=1,
+        test_size=test_fraction,
+        random_state=random_state,
+    )
+    train_indices, test_indices = next(
+        splitter.split(df, y=df["Next_Day_AQI"], groups=df["City"])
+    )
+    train = df.iloc[train_indices].copy().sort_values(["Date", "City"])
+    test = df.iloc[test_indices].copy().sort_values(["Date", "City"])
+    train_cities = set(train["City"].astype(str))
+    test_cities = set(test["City"].astype(str))
+
+    if train_cities.intersection(test_cities):
+        raise AssertionError("City-held-out split leaked cities across train and test.")
+    if train.empty or test.empty:
+        raise ValueError("City-held-out split produced an empty train or test set.")
+
+    return train.reset_index(drop=True), test.reset_index(drop=True), sorted(test_cities)
+
