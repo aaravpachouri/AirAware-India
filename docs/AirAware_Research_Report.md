@@ -174,24 +174,22 @@ The focused GitHub Actions workflow compiles the application and research script
 
 ## 7. Feature Importance
 
-The final model showed that current AQI was the dominant predictor.
-
-The leading feature importances were approximately:
+The corrected chronological training run again identified current AQI as the dominant predictor. The following values were emitted by the same GitHub Actions run as the evaluation metrics:
 
 | Feature | Importance |
 |---|---:|
-| AQI | 0.818 |
-| PM2.5 | 0.067 |
-| PM10 | 0.018 |
-| CO | 0.017 |
-| AQI_3Day_Avg | 0.012 |
-| NO2 | 0.010 |
-| O3 | 0.009 |
-| AQI_Change | 0.009 |
-| SO2 | 0.009 |
-| Previous_Day_AQI | 0.007 |
+| AQI | 0.806855 |
+| PM2.5 | 0.071889 |
+| CO | 0.017508 |
+| PM10 | 0.017202 |
+| AQI_3Day_Avg | 0.014346 |
+| NO2 | 0.010495 |
+| O3 | 0.009826 |
+| SO2 | 0.009672 |
+| AQI_Change | 0.009613 |
+| Previous_Day_AQI | 0.007566 |
 
-This result is consistent with the short forecasting horizon: the current air-quality state contains substantial information about the following day's state. The importance values above are from the earlier model run and have not yet been regenerated with the corrected chronological split.
+This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal. These values inherit the preprocessing limitation described in Section 6 because the prepared dataset's pollutant medians were calculated before the temporal split.
 
 ---
 
