@@ -71,6 +71,8 @@ jobs:
         run: python src/city_evaluation.py
       - name: Evaluate generalization to held-out cities
         run: python src/evaluate_city_holdout.py
+      - name: Benchmark model families on temporal and city-held-out splits
+        run: python src/model_benchmark.py
       - name: Report model feature importance
         run: python src/feature_importance.py
       - name: Upload regenerated dataset, model, and plot
