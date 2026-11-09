@@ -139,7 +139,7 @@ The training and evaluation scripts now share the same date-aware split and feat
 
 ## Feature Importance
 
-The final Random Forest showed that current AQI was the dominant predictor, followed by PM2.5 and other pollutant/temporal features.
+The previous Random Forest run showed current AQI as the dominant predictor, followed by PM2.5 and other pollutant/temporal features. These importances have not yet been regenerated using the corrected chronological split.
 
 This is consistent with the short-horizon nature of the forecasting problem: today's air-quality state contains substantial information about the following day's conditions.
 
