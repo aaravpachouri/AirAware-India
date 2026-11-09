@@ -40,6 +40,7 @@ sys.path.insert(0, str(SRC_DIR))
 from live_air import (
 
     get_available_locations,
+    find_sensor_compatible_locations,
 
     get_live_air_quality,
     get_cpcb_averaged_air_quality,
@@ -3410,6 +3411,11 @@ page = st.sidebar.radio(
 
 
 
+def _set_monitoring_station(label: str) -> None:
+    """Update the station selector before Streamlit reruns the page."""
+    st.session_state["monitoring_station_selector"] = label
+
+
 selected_location = None
 
 
@@ -3465,11 +3471,9 @@ if page == "Latest Air":
 
 
             selected_label = st.sidebar.selectbox(
-
                 "📍 Monitoring Station",
-
                 list(location_options.keys()),
-
+                key="monitoring_station_selector",
             )
 
 
@@ -3640,6 +3644,92 @@ if page == "Latest Air":
 
 
     pollutants = live["pollutants"]
+
+    with st.expander("Find stations with better pollutant coverage", expanded=False):
+        st.caption(
+            "Searches a bounded set of recent stations in the same city/locality. "
+            "Only sensor inventories are compared; readings from different stations are never combined."
+        )
+        if st.button(
+            "Find same-city alternatives",
+            key=f"find_sensor_stations_{selected_location['id']}",
+        ):
+            with st.spinner("Checking station sensor inventories…"):
+                try:
+                    st.session_state["sensor_station_candidates"] = (
+                        find_sensor_compatible_locations(
+                            available_locations,
+                            selected_location,
+                            max_candidates=20,
+                        )
+                    )
+                    st.session_state["sensor_station_search_for"] = selected_location["id"]
+                except Exception as station_error:
+                    st.error("Could not search alternative station inventories.")
+                    st.caption(str(station_error)[:250])
+
+        if st.session_state.get("sensor_station_search_for") == selected_location["id"]:
+            candidates = st.session_state.get("sensor_station_candidates", [])
+            if not candidates:
+                st.info(
+                    "No same-city alternatives were found in the recent station list. "
+                    "The current station remains selected."
+                )
+            else:
+                st.write("Same-city station inventory")
+                st.dataframe(
+                    [
+                        {
+                            "Station": item.get("name", f"Station {item['id']}"),
+                            "Locality": item.get("locality", ""),
+                            "Pollutants": ", ".join(item.get("pollutants", [])) or "Unknown",
+                            "Sensors": item.get("sensor_count", 0),
+                            "Inventory gate": (
+                                "Potentially suitable"
+                                if item.get("inventory_eligible")
+                                else "Insufficient sensor types"
+                            ),
+                            "Metadata issue": item.get("metadata_error") or "",
+                        }
+                        for item in candidates
+                    ],
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                station_choices = {
+                    (
+                        (item.get("name") or ("Station " + str(item["id"])))
+                        + " — "
+                        + (item.get("locality") or item.get("city") or "Same city")
+                        + " (ID " + str(item["id"]) + ")"
+                    ): item
+                    for item in candidates
+                }
+                if station_choices:
+                    chosen_station_label = st.selectbox(
+                        "Alternative monitoring station",
+                        list(station_choices.keys()),
+                        key=f"sensor_alternative_choice_{selected_location['id']}",
+                    )
+                    target_label = next(
+                        (
+                            label for label, item in location_options.items()
+                            if item.get("id") == station_choices[chosen_station_label].get("id")
+                        ),
+                        None,
+                    )
+                    if target_label is not None:
+                        st.button(
+                            "Use this monitoring station",
+                            key=f"use_sensor_alternative_{selected_location['id']}",
+                            on_click=_set_monitoring_station,
+                            args=(target_label,),
+                        )
+                    else:
+                        st.info(
+                            "This station is no longer in the current recent-station list. "
+                            "Refresh the app and search again."
+                        )
 
     with st.expander("Research check: time-averaged AQI data coverage", expanded=False):
         st.caption(

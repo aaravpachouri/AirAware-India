@@ -899,6 +899,77 @@ def get_location(
 
 
 
+def find_sensor_compatible_locations(
+    locations: list[dict],
+    reference_location: dict,
+    *,
+    max_candidates: int = 20,
+) -> list[dict]:
+    """Find same-city stations with richer pollutant sensor inventories.
+
+    This is an explicit, on-demand discovery operation. It fetches full
+    metadata only for a bounded number of candidate stations and never mixes
+    measurements across locations.
+    """
+    reference_city = str(
+        reference_location.get("city")
+        or reference_location.get("locality")
+        or ""
+    ).strip().casefold()
+    reference_state = str(reference_location.get("state") or "").strip().casefold()
+    if not reference_city:
+        return []
+
+    candidates = []
+    for item in locations:
+        if item.get("id") == reference_location.get("id"):
+            continue
+        city = str(item.get("city") or item.get("locality") or "").strip().casefold()
+        state = str(item.get("state") or "").strip().casefold()
+        if city != reference_city:
+            continue
+        if reference_state and state and state != reference_state:
+            continue
+        candidates.append(item)
+
+    candidates.sort(key=lambda item: item.get("last_datetime") or "", reverse=True)
+    results = []
+    for candidate in candidates[:max(1, min(int(max_candidates), 30))]:
+        try:
+            detail = get_location(int(candidate["id"]))
+            mapping = _sensor_mapping(detail)
+            pollutants = sorted({value[0] for value in mapping.values()})
+            has_particulate = bool({"pm25", "pm10"} & set(pollutants))
+            eligible_inventory = len(set(pollutants) & {"pm25", "pm10", "no2", "so2", "co", "o3"}) >= 3 and has_particulate
+            results.append({
+                **candidate,
+                "sensor_count": len(mapping),
+                "pollutants": pollutants,
+                "has_particulate": has_particulate,
+                "inventory_eligible": eligible_inventory,
+                "metadata_error": None,
+            })
+        except Exception as exc:
+            results.append({
+                **candidate,
+                "sensor_count": 0,
+                "pollutants": [],
+                "has_particulate": False,
+                "inventory_eligible": False,
+                "metadata_error": str(exc)[:200],
+            })
+
+    results.sort(
+        key=lambda item: (
+            item["inventory_eligible"],
+            len(item["pollutants"]),
+            item.get("last_datetime") or "",
+        ),
+        reverse=True,
+    )
+    return results
+
+
 
 
 # ============================================================
