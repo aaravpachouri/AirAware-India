@@ -149,6 +149,10 @@ GitHub Actions rebuilt the historical dataset from a checksum-verified raw sourc
 
 The fresh model's MAE was approximately 12.8% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
 
+### Separate city-held-out experiment
+
+A deterministic group split held out six complete cities (4,508 observations) that were not used for fitting. The city-aware Random Forest achieved MAE **28.25 AQI points** (R² 0.545); a city-agnostic Random Forest achieved MAE **24.64** (R² 0.703); persistence achieved MAE **22.19**; and the three-day mean achieved MAE **24.64**. Neither Random Forest beat persistence on this split. This shows that the model's chronological result does not establish generalization to unseen cities. Per-city breakdowns are being revalidated separately before being reported.
+
 ### Training and test protocol
 
 - The prediction target is AQI on the next calendar day.
