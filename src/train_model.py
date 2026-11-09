@@ -2,15 +2,25 @@
 
 Run from the repository root:
     python src/train_model.py
+
+Pollutant missing values are imputed using medians fitted on the training
+period only. The test period is never used to fit the imputer.
 """
 import joblib
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-from evaluation_utils import FEATURES, ROOT, chronological_split, load_ml_data
+from evaluation_utils import (
+    FEATURES,
+    POLLUTANT_FEATURES,
+    ROOT,
+    chronological_split,
+    load_ml_data,
+)
 
 
 def main() -> None:
@@ -20,6 +30,11 @@ def main() -> None:
     preprocessor = ColumnTransformer(
         transformers=[
             ("city", OneHotEncoder(handle_unknown="ignore"), ["City"]),
+            (
+                "pollutant_imputer",
+                SimpleImputer(strategy="median", keep_empty_features=True),
+                POLLUTANT_FEATURES,
+            ),
         ],
         remainder="passthrough",
     )
@@ -48,11 +63,13 @@ def main() -> None:
     joblib.dump(model, model_dir / "airaware_random_forest.joblib")
     joblib.dump(model, model_dir / "airaware_random_forest_v3.joblib")
 
-    print("Model training complete.")
+    print("Model training complete (training-only pollutant imputation).")
     print(f"Training rows: {len(train)}")
     print(f"Testing rows: {len(test)}")
     print(f"First test feature date: {test_start.date()}")
     print(f"Last training feature date: {train['Date'].max().date()}")
+    print(f"Training pollutant missing values:")
+    print(train[POLLUTANT_FEATURES].isna().sum().to_string())
     print(f"MAE: {mae:.2f} AQI points")
     print(f"R²: {r2:.3f}")
     print(f"Models saved in: {model_dir}")
