@@ -4572,6 +4572,16 @@ The training set contained 14,232 observations. The last training feature date w
         "the chronological holdout above."
     )
 
+    st.markdown("### Live Forecast Model — Historical Proxy Evaluation")
+
+    st.info(
+        "The compact live-model pipeline achieved MAE 16.96 AQI points and "
+        "R² 0.877 on the chronological historical city-day test set. "
+        "Persistence MAE was 18.81 and the three-day mean baseline MAE was "
+        "22.70. The deployed artifact is 36.4 MiB. These results do not "
+        "validate predictions against future measurements from a live station."
+    )
+
     st.markdown("### Model Inputs")
 
 
