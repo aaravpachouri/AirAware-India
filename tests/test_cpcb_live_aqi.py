@@ -40,7 +40,7 @@ def test_8_hour_pollutant_requires_a_complete_consecutive_8_hour_window():
     # eight consecutive hourly buckets exist.
     values = [
         {"timestamp": NOW - timedelta(hours=offset), "value": 20}
-        for offset in range(1, 24, 2)
+        for offset in list(range(1, 8)) + list(range(9, 16)) + list(range(17, 19))
     ]
     result = aggregate_hourly_observations({"co": values}, now=NOW)
     assert "co" not in result["averages"]
