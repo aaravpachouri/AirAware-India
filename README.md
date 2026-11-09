@@ -62,6 +62,12 @@ Random Forest Forecasting Model
               Environmental Insight
 ```
 
+## Live Demo
+
+**Public app:** https://airaware-india-s5nokzxaczphwtyzwhscug.streamlit.app/
+
+The Streamlit Community Cloud app was verified in a private/incognito browser session without a sign-in prompt. Live observations and forecasts depend on the availability and freshness of the upstream monitoring data.
+
 ## Dashboard
 
 ### Latest Air
