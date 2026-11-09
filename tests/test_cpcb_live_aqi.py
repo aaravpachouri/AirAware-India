@@ -36,10 +36,12 @@ def test_24_hour_average_is_calculated_when_coverage_is_sufficient():
 
 
 def test_8_hour_pollutant_requires_a_complete_consecutive_8_hour_window():
-    values = series(16)
-    # Remove one point from the most recent eight-hour span while leaving
-    # enough total hourly points in the 24-hour coverage window.
-    values = [v for v in values if v["timestamp"] != NOW - timedelta(hours=3)]
+    # Keep 16 valid observations in 24 hours but alternate them so no
+    # eight consecutive hourly buckets exist.
+    values = [
+        {"timestamp": NOW - timedelta(hours=offset), "value": 20}
+        for offset in range(1, 24, 2)
+    ]
     result = aggregate_hourly_observations({"co": values}, now=NOW)
     assert "co" not in result["averages"]
     assert "8-consecutive-hour" in result["rejected_pollutants"]["co"]
