@@ -4530,11 +4530,11 @@ elif page == "Model Performance":
 
 
     st.warning(
-        "These metrics come from a fresh chronological retrain using the "
-        "checksum-verified raw dataset. Pollutant medians are fitted on the "
-        "training rows only. The older checked-in model scored 11.39 MAE and "
-        "0.938 R², but its original training cutoff is undocumented, so that "
-        "stronger score is not accepted as reliable out-of-sample evidence."
+        "The model now checked into this branch was retrained from the "
+        "checksum-verified raw dataset with pollutant medians fitted on "
+        "training rows only. The previous artifact scored 11.39 MAE and "
+        "0.938 R², but its original training cutoff was undocumented, so "
+        "that stronger score was not accepted as reliable out-of-sample evidence."
     )
 
 
