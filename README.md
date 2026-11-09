@@ -107,21 +107,23 @@ The final historical model uses:
 
 ### Reproducible chronological evaluation
 
-GitHub Actions evaluated both the checked-in model artifact and a fresh model retrained with the corrected chronological split. Both used the same 8,368 held-out rows from the checked-in prepared dataset.
+GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retrained the Random Forest using a date-based split and training-only pollutant imputation.
 
-| Metric | Checked-in model artifact | Fresh chronological retrain |
-|---|---:|---:|
-| Test MAE | 11.39 AQI points | 16.18 AQI points |
-| Test R² | 0.938 | 0.898 |
-| Persistence baseline MAE | 18.94 AQI points | 18.94 AQI points |
+| Metric | Leakage-controlled temporal evaluation |
+|---|---:|
+| Training rows | 14,597 |
+| Held-out test rows | 8,368 |
+| Last training feature date | 2019-05-24 |
+| First test feature date | 2019-05-26 |
+| Test MAE | **16.21 AQI points** |
+| Test R² | **0.898** |
+| Persistence baseline MAE | **18.94 AQI points** |
 
-The split used 14,597 training rows. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. The fresh retrain's MAE was about 14.6% lower than the persistence baseline on the same held-out rows.
+The model's MAE is about 14.4% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
 
-**Important limitations:**
+**Why the older model score is not used:** the previous checked-in artifact scored MAE 11.39 and R² 0.938 on a later-date holdout, but its original training cutoff is undocumented. It may have seen future dates during training, so that score is not accepted as reliable out-of-sample evidence.
 
-1. The checked-in model artifact's original training cutoff is not recorded. Its much stronger score may reflect training on future dates, so its result is not accepted as proof of leakage-free out-of-sample performance.
-2. The prepared dataset was generated after pollutant missing values were median-imputed using the full dataset. This may leak information from later dates into preprocessing. Both scores are therefore **preliminary** until the dataset is rebuilt from raw observations with training-period-only imputation (or a documented complete-case policy).
-3. R² is not a percentage accuracy score.
+**Preprocessing method:** pollutant missing values are retained in the prepared dataset and imputed inside the model pipeline using medians fitted only on the training rows. The raw source file is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847` before preprocessing. The source CSV itself is not committed to the repository.
 
 The baseline is a persistence model:
 
@@ -129,18 +131,22 @@ The baseline is a persistence model:
 Tomorrow's AQI = Today's AQI
 ```
 
+**Important:** R² is not a percentage accuracy score.
+
 ### Reproduce the historical evaluation
 
-Run these commands from the repository root after ensuring the historical dataset is available at `data/ml_data.csv`. Install the evaluation dependencies (including Matplotlib for the prediction plot) with:
+Install the dependencies:
 
 ```bash
 pip install -r requirements-dev.txt
 ```
 
-Then run:
+Run the full reproducible pipeline:
 
 ```bash
-python src/evaluate_saved_model.py
+python src/download_source_data.py
+python src/clean_data.py
+python src/prepare_ml_data.py
 python src/train_model.py
 python src/evaluate_baseline.py
 python src/evaluate_predictions.py
@@ -148,11 +154,11 @@ python src/city_evaluation.py
 python src/feature_importance.py
 ```
 
-The saved-artifact evaluation and fresh training scripts now share the same date-aware split and feature definition. The scripts print fresh metrics for the dataset present on your machine. The raw historical dataset is not included in every checkout, so results cannot be regenerated without obtaining the source data and running the preparation pipeline.
+To evaluate an existing compatible model artifact against the prepared dataset, run `python src/evaluate_saved_model.py` before retraining. The downloader verifies the source CSV checksum and fails closed if the file differs. The training pipeline learns pollutant imputation values only from training-period rows; the held-out test period is not used to fit the imputer.
 
 ## Feature Importance
 
-The corrected chronological training run identified current AQI as the dominant predictor (importance 0.8069), followed by PM2.5 (0.0719). Feature importance is descriptive, not causal, and the values inherit the preprocessing caveat above because pollutant medians were calculated before the split.
+The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8068), followed by PM2.5 (0.0718). Feature importance is descriptive, not causal.
 
 This is consistent with the short-horizon nature of the forecasting problem: today's air-quality state contains substantial information about the following day's conditions.
 
