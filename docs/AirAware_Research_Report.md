@@ -135,7 +135,7 @@ This prevents future observations from being used to train the model before earl
 
 ## 6. Results
 
-GitHub Actions successfully evaluated the checked-in model artifact and retrained a fresh Random Forest using the shared chronological split. Both runs used the same held-out dates and prepared dataset.
+GitHub Actions rebuilt the historical dataset from a checksum-verified raw source and retrained the Random Forest using a date-based split with training-only pollutant imputation.
 
 | Evaluation detail | Result |
 |---|---:|
@@ -143,60 +143,46 @@ GitHub Actions successfully evaluated the checked-in model artifact and retraine
 | Held-out test rows | 8,368 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Checked-in artifact MAE | 11.39 AQI points |
-| Checked-in artifact R² | 0.938 |
-| Fresh chronological retrain MAE | 16.18 AQI points |
-| Fresh chronological retrain R² | 0.898 |
+| Test MAE | 16.21 AQI points |
+| Test R² | 0.898 |
 | Persistence baseline MAE | 18.94 AQI points |
 
-The fresh retrain's MAE was approximately 14.6% lower than the persistence baseline, measured on the same held-out rows. Performance varied across cities: fresh-retrain test MAE ranged from 7.61 AQI points for Bengaluru to 42.95 for Ahmedabad.
+The fresh model's MAE was approximately 14.4% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
 
-### Why the saved-model score is not yet trusted
+### Training and test protocol
 
-The checked-in model artifact scores much better than the fresh chronological retrain, but its original training cutoff and split method are not recorded. If it was trained on observations after the test period begins, its apparent holdout score may be contaminated by future-date exposure. We therefore report the result for transparency, not as proof of validated generalization.
+- The prediction target is AQI on the next calendar day.
+- Rows are sorted and split by unique dates, not by randomly shuffling individual observations.
+- A one-day gap is left between the last training feature date and the first test feature date to prevent the final training target from overlapping the test feature window.
+- Missing pollutant values are retained through dataset preparation and imputed by a median imputer fitted only on the training rows.
+- The raw source CSV is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847`. The raw CSV is not committed to the repository.
 
-### Preprocessing limitation
+### Legacy artifact caution
 
-The prepared dataset was created after the earlier `clean_data.py` script filled missing pollutant values using medians calculated over the full dataset. Because this preprocessing occurred before the split, it can leak information from later dates into the training process.
+The previously checked-in model artifact scored MAE 11.39 AQI points and R² 0.938 when evaluated on a later-date holdout. Its original training cutoff and split method are undocumented, so it may have been trained on future dates relative to the holdout. We do not accept that stronger score as reliable out-of-sample evidence. The leakage-controlled fresh retrain is the reported result.
 
-These are reproducible **preliminary metrics**, not a final leakage-controlled estimate. The next research step is to rebuild the dataset from the original raw observations and perform imputation using training-period data only, or explicitly use a complete-case policy. The raw source file `data/city_day.csv` is ignored by Git and was not available to this run, so that stricter rerun remains outstanding.
-
-### Reproducing the evaluation
-
-From the repository root, ensure `data/ml_data.csv` and the model artifact are present, then run:
-
-```bash
-pip install -r requirements-dev.txt
-python src/evaluate_saved_model.py
-python src/train_model.py
-python src/evaluate_baseline.py
-python src/evaluate_predictions.py
-python src/city_evaluation.py
-python src/feature_importance.py
-```
-
-The focused GitHub Actions workflow downloads the model artifacts through Git LFS, compiles the application and research scripts, runs the temporal-split regression tests, evaluates the checked-in artifact, and runs the full retraining/evaluation sequence. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score.
+R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score. These results concern historical city-level data and should not be interpreted as forecasts of current air quality.
 
 ---
 
 ## 7. Feature Importance
 
-The corrected chronological training run again identified current AQI as the dominant predictor. The following values were emitted by the same GitHub Actions run as the evaluation metrics:
+The leakage-controlled training run identified current AQI as the dominant predictor. The values below were emitted by the same successful GitHub Actions run as the evaluation metrics:
 
 | Feature | Importance |
 |---|---:|
-| AQI | 0.806855 |
-| PM2.5 | 0.071889 |
-| CO | 0.017508 |
-| PM10 | 0.017202 |
-| AQI_3Day_Avg | 0.014346 |
-| NO2 | 0.010495 |
-| O3 | 0.009826 |
-| SO2 | 0.009672 |
-| AQI_Change | 0.009613 |
-| Previous_Day_AQI | 0.007566 |
+| AQI | 0.806811 |
+| PM2.5 | 0.071782 |
+| CO | 0.017570 |
+| PM10 | 0.017421 |
+| AQI_3Day_Avg | 0.014257 |
+| NO2 | 0.010475 |
+| O3 | 0.009814 |
+| SO2 | 0.009709 |
+| AQI_Change | 0.009553 |
+| Previous_Day_AQI | 0.007520 |
 
-This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal. These values inherit the preprocessing limitation described in Section 6 because the prepared dataset's pollutant medians were calculated before the temporal split.
+This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal.
 
 ---
 
