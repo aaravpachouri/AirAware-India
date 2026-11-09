@@ -209,6 +209,8 @@ The dashboard therefore clearly treats this component as a research prototype.
 
 The historical model was developed using Indian city-level air-quality observations from **2015–2020**.
 
+**Data provenance:** The raw dataset is the Air Quality Data in India city-day dataset, originally distributed on [Kaggle](https://www.kaggle.com/datasets/rohanrao/air-quality-data-in-india). The project downloads a pinned [GitHub mirror](https://github.com/govindlabhala-cell/India-Air-Quality-EDA) and verifies its SHA-256 checksum before processing. The [TUMI data portal](https://portal.transport-data.org/@tumi/urban-air-pollution-india-2015-2020) lists the dataset under CC0 1.0. The mirror is used for reproducibility and is not claimed as the original publisher.
+
 The data-processing pipeline includes:
 
 1. Removing invalid dates and unusable AQI records
@@ -216,7 +218,7 @@ The data-processing pipeline includes:
 3. Normalizing pollutant columns
 4. Creating chronological city-level features
 5. Creating previous-day AQI
-6. Creating a rolling 3-day AQI average
+6. Creating a rolling 3-day AQI average only when all three calendar days are consecutive
 7. Creating AQI change
 8. Creating calendar features
 9. Creating a true next-day prediction target
