@@ -1,0 +1,114 @@
+name: AQI evaluation tests
+
+on:
+  push:
+    branches:
+      - main
+      - fix/reproducible-aqi-validation
+    paths:
+      - "app.py"
+      - "src/**"
+      - "tests/**"
+      - "data/ml_data.csv"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - ".github/workflows/aqi-evaluation-tests.yml"
+  pull_request:
+    paths:
+      - "app.py"
+      - "src/**"
+      - "tests/**"
+      - "data/ml_data.csv"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - ".github/workflows/aqi-evaluation-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  evaluation-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository and download model artifacts
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install project and evaluation dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+      - name: Compile application and research scripts
+        run: python -m compileall -q app.py src
+      - name: Run evaluation utility tests
+        run: python -m pytest -q tests/test_evaluation_utils.py
+      - name: Evaluate checked-in historical model artifact on the committed prepared dataset
+        run: python src/evaluate_saved_model.py
+      - name: Download and checksum-verify raw historical dataset
+        run: python src/download_source_data.py
+      - name: Rebuild cleaned dataset without global imputation
+        run: python src/clean_data.py
+      - name: Rebuild next-day features while retaining pollutant missing values
+        run: python src/prepare_ml_data.py
+      - name: Retrain historical model with training-only imputation
+        run: python src/train_model.py
+      - name: Evaluate persistence baseline on the same held-out dates
+        run: python src/evaluate_baseline.py
+      - name: Evaluate predictions and generate plot
+        run: python src/evaluate_predictions.py
+      - name: Evaluate errors by city
+        run: python src/city_evaluation.py
+      - name: Report model feature importance
+        run: python src/feature_importance.py
+      - name: Upload regenerated dataset, model, and plot
+        uses: actions/upload-artifact@v4
+        with:
+          name: airaware-regenerated-model
+          path: |
+            data/cleaned_city_day.csv
+            data/ml_data.csv
+            models/airaware_random_forest_v3.joblib
+            reports/actual_vs_predicted.png
+          if-no-files-found: error
+
+  publish-generated-artifacts:
+    needs: evaluation-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/reproducible-aqi-validation' && !contains(github.event.head_commit.message, 'Regenerate AQI dataset and temporal model')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check out isolated validation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/reproducible-aqi-validation
+          lfs: true
+      - name: Download regenerated artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: airaware-regenerated-model
+          path: /tmp/airaware-regenerated
+      - name: Update model and prepared datasets on the isolated branch
+        run: |
+          set -euo pipefail
+          cp /tmp/airaware-regenerated/data/cleaned_city_day.csv data/cleaned_city_day.csv
+          cp /tmp/airaware-regenerated/data/ml_data.csv data/ml_data.csv
+          cp /tmp/airaware-regenerated/models/airaware_random_forest_v3.joblib models/airaware_random_forest_v3.joblib
+          cp /tmp/airaware-regenerated/reports/actual_vs_predicted.png reports/actual_vs_predicted.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/cleaned_city_day.csv data/ml_data.csv models/airaware_random_forest_v3.joblib reports/actual_vs_predicted.png
+          if git diff --cached --quiet; then
+            echo "Generated artifacts are already up to date."
+            exit 0
+          fi
+          git commit -m "Regenerate AQI dataset and temporal model"
+          git push origin HEAD:fix/reproducible-aqi-validation

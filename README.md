@@ -105,13 +105,25 @@ The final historical model uses:
 - Month
 - Day of week
 
-### Test results
+### Reproducible chronological evaluation
 
-| Metric | Result |
+GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retrained the Random Forest using a date-based split and training-only pollutant imputation.
+
+| Metric | Leakage-controlled temporal evaluation |
 |---|---:|
-| Test MAE | **16.20 AQI points** |
-| Test R² | **0.883** |
-| Baseline MAE | **18.39 AQI points** |
+| Training rows | 14,597 |
+| Held-out test rows | 8,368 |
+| Last training feature date | 2019-05-24 |
+| First test feature date | 2019-05-26 |
+| Test MAE | **16.21 AQI points** |
+| Test R² | **0.898** |
+| Persistence baseline MAE | **18.94 AQI points** |
+
+The model's MAE is about 14.4% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
+
+**Why the older model score is not used:** the previous checked-in artifact scored MAE 11.39 and R² 0.938 on a later-date holdout, but its original training cutoff is undocumented. It may have seen future dates during training, so that score is not accepted as reliable out-of-sample evidence.
+
+**Preprocessing method:** pollutant missing values are retained in the prepared dataset and imputed inside the model pipeline using medians fitted only on the training rows. The raw source file is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847` before preprocessing. The source CSV itself is not committed to the repository.
 
 The baseline is a persistence model:
 
@@ -119,11 +131,34 @@ The baseline is a persistence model:
 Tomorrow's AQI = Today's AQI
 ```
 
-**Important:** R² = 0.883 is not "88.3% accuracy."
+**Important:** R² is not a percentage accuracy score.
+
+### Reproduce the historical evaluation
+
+Install the dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run the full reproducible pipeline:
+
+```bash
+python src/download_source_data.py
+python src/clean_data.py
+python src/prepare_ml_data.py
+python src/train_model.py
+python src/evaluate_baseline.py
+python src/evaluate_predictions.py
+python src/city_evaluation.py
+python src/feature_importance.py
+```
+
+To evaluate an existing compatible model artifact against the prepared dataset, run `python src/evaluate_saved_model.py` before retraining. The downloader verifies the source CSV checksum and fails closed if the file differs. The training pipeline learns pollutant imputation values only from training-period rows; the held-out test period is not used to fit the imputer.
 
 ## Feature Importance
 
-The final Random Forest showed that current AQI was the dominant predictor, followed by PM2.5 and other pollutant/temporal features.
+The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8068), followed by PM2.5 (0.0718). Feature importance is descriptive, not causal.
 
 This is consistent with the short-horizon nature of the forecasting problem: today's air-quality state contains substantial information about the following day's conditions.
 
@@ -165,8 +200,8 @@ The historical model was developed using Indian city-level air-quality observati
 
 The data-processing pipeline includes:
 
-1. Cleaning missing and invalid observations
-2. Removing unusable AQI records
+1. Removing invalid dates and unusable AQI records
+2. Retaining missing pollutant observations for train-only imputation
 3. Normalizing pollutant columns
 4. Creating chronological city-level features
 5. Creating previous-day AQI
@@ -183,6 +218,7 @@ AirAware-India/
 ├── app.py
 ├── README.md
 ├── requirements.txt
+├── requirements-dev.txt
 ├── .env.example
 ├── .gitignore
 │
@@ -204,11 +240,13 @@ AirAware-India/
 │   └── pm25_vs_aqi.png
 │
 └── src/
+    ├── download_source_data.py
     ├── clean_data.py
     ├── eda.py
     ├── prepare_ml_data.py
     ├── train_model.py
     ├── train_live_model.py
+    ├── evaluate_saved_model.py
     ├── evaluate_baseline.py
     ├── evaluate_predictions.py
     ├── feature_importance.py

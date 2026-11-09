@@ -135,44 +135,54 @@ This prevents future observations from being used to train the model before earl
 
 ## 6. Results
 
-| Evaluation | Result |
+GitHub Actions rebuilt the historical dataset from a checksum-verified raw source and retrained the Random Forest using a date-based split with training-only pollutant imputation.
+
+| Evaluation detail | Result |
 |---|---:|
-| Test MAE | **16.20 AQI points** |
-| Test R² | **0.883** |
-| Persistence baseline MAE | **18.39 AQI points** |
+| Training rows | 14,597 |
+| Held-out test rows | 8,368 |
+| Last training feature date | 2019-05-24 |
+| First test feature date | 2019-05-26 |
+| Test MAE | 16.21 AQI points |
+| Test R² | 0.898 |
+| Persistence baseline MAE | 18.94 AQI points |
 
-### Interpretation
+The fresh model's MAE was approximately 14.4% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
 
-An MAE of 16.20 means that, on average, the model's prediction differs from the observed next-day AQI by about 16 AQI points on the held-out test set.
+### Training and test protocol
 
-An R² of 0.883 indicates that the model explains a large share of the variation in the held-out target values.
+- The prediction target is AQI on the next calendar day.
+- Rows are sorted and split by unique dates, not by randomly shuffling individual observations.
+- A one-day gap is left between the last training feature date and the first test feature date to prevent the final training target from overlapping the test feature window.
+- Missing pollutant values are retained through dataset preparation and imputed by a median imputer fitted only on the training rows.
+- The raw source CSV is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847`. The raw CSV is not committed to the repository.
 
-**R² must not be described as 88.3% prediction accuracy.**
+### Legacy artifact caution
 
-The persistence baseline is important because short-term AQI forecasting can be difficult to improve substantially over simply carrying today's AQI forward. The model therefore needs to be judged against that baseline rather than against accuracy alone.
+The previously checked-in model artifact scored MAE 11.39 AQI points and R² 0.938 when evaluated on a later-date holdout. Its original training cutoff and split method are undocumented, so it may have been trained on future dates relative to the holdout. We do not accept that stronger score as reliable out-of-sample evidence. The leakage-controlled fresh retrain is the reported result.
+
+R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score. These results concern historical city-level data and should not be interpreted as forecasts of current air quality.
 
 ---
 
 ## 7. Feature Importance
 
-The final model showed that current AQI was the dominant predictor.
-
-The leading feature importances were approximately:
+The leakage-controlled training run identified current AQI as the dominant predictor. The values below were emitted by the same successful GitHub Actions run as the evaluation metrics:
 
 | Feature | Importance |
 |---|---:|
-| AQI | 0.818 |
-| PM2.5 | 0.067 |
-| PM10 | 0.018 |
-| CO | 0.017 |
-| AQI_3Day_Avg | 0.012 |
-| NO2 | 0.010 |
-| O3 | 0.009 |
-| AQI_Change | 0.009 |
-| SO2 | 0.009 |
-| Previous_Day_AQI | 0.007 |
+| AQI | 0.806811 |
+| PM2.5 | 0.071782 |
+| CO | 0.017570 |
+| PM10 | 0.017421 |
+| AQI_3Day_Avg | 0.014257 |
+| NO2 | 0.010475 |
+| O3 | 0.009814 |
+| SO2 | 0.009709 |
+| AQI_Change | 0.009553 |
+| Previous_Day_AQI | 0.007520 |
 
-This result is consistent with the short forecasting horizon: the current air-quality state contains substantial information about the following day's state.
+This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal.
 
 ---
 
@@ -395,11 +405,13 @@ The repository contains the main data-processing, training, evaluation, and appl
 Core scripts include:
 
 ```text
+src/download_source_data.py
 src/clean_data.py
 src/eda.py
 src/prepare_ml_data.py
 src/train_model.py
 src/train_live_model.py
+src/evaluate_saved_model.py
 src/evaluate_baseline.py
 src/evaluate_predictions.py
 src/feature_importance.py
@@ -408,7 +420,21 @@ src/live_air.py
 src/live_forecast.py
 ```
 
-The project can be run locally with:
+Rebuild the research model reproducibly with:
+
+```bash
+pip install -r requirements-dev.txt
+python src/download_source_data.py
+python src/clean_data.py
+python src/prepare_ml_data.py
+python src/train_model.py
+python src/evaluate_baseline.py
+python src/evaluate_predictions.py
+python src/city_evaluation.py
+python src/feature_importance.py
+```
+
+Run the interactive dashboard with:
 
 ```bash
 pip install -r requirements.txt

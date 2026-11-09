@@ -1,37 +1,44 @@
-import pandas as pd
+"""Evaluate next-day AQI errors by city on the shared chronological test set."""
 import joblib
 from sklearn.metrics import mean_absolute_error
 
-df = pd.read_csv("data/ml_data.csv")
-df["Date"] = pd.to_datetime(df["Date"])
-df = df.sort_values("Date")
+from evaluation_utils import FEATURES, ROOT, chronological_split, load_ml_data
 
-split_index = int(len(df) * 0.8)
-test = df.iloc[split_index:].copy()
 
-features = [
-    "City",
-    "PM2.5",
-    "PM10",
-    "NO2",
-    "CO",
-    "SO2",
-    "O3",
-    "AQI",
-    "Day",
-    "Month",
-    "DayOfWeek",
-]
+def main() -> None:
+    df = load_ml_data()
+    _, test, test_start = chronological_split(df)
+    model_path = ROOT / "models" / "airaware_random_forest.joblib"
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Trained model not found at {model_path}. Run python src/train_model.py first."
+        )
 
-model = joblib.load("models/airaware_random_forest.joblib")
+    model = joblib.load(model_path)
+    test = test.copy()
+    test["Prediction"] = model.predict(test[FEATURES])
 
-test["Prediction"] = model.predict(test[features])
+    rows = []
+    for city, group in test.groupby("City", sort=True):
+        rows.append(
+            {
+                "City": city,
+                "Test rows": len(group),
+                "MAE (AQI points)": mean_absolute_error(
+                    group["Next_Day_AQI"], group["Prediction"]
+                ),
+            }
+        )
 
-results = (
-    test.groupby("City")
-    .apply(lambda x: mean_absolute_error(x["Next_Day_AQI"], x["Prediction"]))
-    .sort_values()
-)
+    results = sorted(rows, key=lambda row: row["MAE (AQI points)"])
+    print(f"First test feature date: {test_start.date()}")
+    print("MAE by city (AQI points; lower is better):")
+    for row in results:
+        print(
+            f"{row['City']}: MAE={row['MAE (AQI points)']:.2f} "
+            f"(n={row['Test rows']})"
+        )
 
-print("MAE by city:")
-print(results)
+
+if __name__ == "__main__":
+    main()

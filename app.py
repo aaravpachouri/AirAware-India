@@ -4519,13 +4519,23 @@ elif page == "Model Performance":
 
     with c2:
 
-        st.metric("Test MAE", "16.20")
+        st.metric("Chronological test MAE", "16.21")
 
 
 
     with c3:
 
-        st.metric("Test R²", "0.883")
+        st.metric("Chronological test R²", "0.898")
+
+
+
+    st.warning(
+        "The model now checked into this branch was retrained from the "
+        "checksum-verified raw dataset with pollutant medians fitted on "
+        "training rows only. The previous artifact scored 11.39 MAE and "
+        "0.938 R², but its original training cutoff was undocumented, so "
+        "that stronger score was not accepted as reliable out-of-sample evidence."
+    )
 
 
 
@@ -4535,16 +4545,16 @@ elif page == "Model Performance":
 
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
-<strong>MAE — 16.20 AQI points</strong><br>
-On average, the model's prediction differs from the actual next-day AQI
-by about 16 AQI points on the held-out test set.<br><br>
+<strong>Chronological test MAE — 16.21 AQI points</strong><br>
+The freshly trained model's average absolute error was 16.21 AQI points on 8,368 held-out observations.<br><br>
 
-<strong>R² — 0.883</strong><br>
-The model explains a large proportion of the variation in next-day AQI
-within this test set.<br><br>
+<strong>Chronological test R² — 0.898</strong><br>
+This describes variation explained relative to a constant-mean predictor. It is not a percentage accuracy score.<br><br>
 
-These values describe performance on the historical test data.
-They should <strong>not</strong> be interpreted as "88.3% accuracy."
+<strong>Persistence baseline MAE — 18.94 AQI points</strong><br>
+Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same held-out rows. The model's MAE was about 14.4% lower.<br><br>
+
+The training set contained 14,597 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Pollutant missing values are imputed using medians learned only from the training period. Performance still varies by city and the result applies to this historical dataset, not current air quality.
 </div>
 """).strip()
 
