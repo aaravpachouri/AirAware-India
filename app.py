@@ -3684,6 +3684,7 @@ if page == "Latest Air":
                             **metadata,
                             "average": coverage_result["averages"].get(pollutant),
                             "rejection": coverage_result["rejected_pollutants"].get(pollutant),
+                            "sensor_diagnostics": coverage_result.get("sensor_diagnostics", {}).get(pollutant, {}),
                         }
                         for pollutant, metadata in coverage_result["coverage"].items()
                     })
