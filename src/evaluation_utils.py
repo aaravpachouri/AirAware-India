@@ -2,6 +2,7 @@
 
 The target is next-calendar-day AQI. To avoid target-window overlap, training
 rows must end at least one calendar day before the first test feature date.
+The feature order intentionally matches app.py's historical prediction inputs.
 """
 from pathlib import Path
 
@@ -9,11 +10,10 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "ml_data.csv"
+
+# Keep this exact order in sync with the historical forecast input in app.py.
 FEATURES = [
     "City",
-    "Previous_Day_AQI",
-    "AQI_3Day_Avg",
-    "AQI_Change",
     "PM2.5",
     "PM10",
     "NO2",
@@ -21,6 +21,9 @@ FEATURES = [
     "SO2",
     "O3",
     "AQI",
+    "Previous_Day_AQI",
+    "AQI_3Day_Avg",
+    "AQI_Change",
     "Day",
     "Month",
     "DayOfWeek",
@@ -64,9 +67,9 @@ def chronological_split(
     cutoff_index = min(max(cutoff_index, 2), len(dates) - 1)
     test_start = pd.Timestamp(dates[cutoff_index])
 
-    # Next_Day_AQI at date D is the observed AQI for D+1. Drop the
-    # immediately preceding feature date from training to prevent the last
-    # training label from landing on the first test feature date.
+    # Next_Day_AQI at date D is the observed AQI for D+1. Exclude the
+    # immediately preceding feature date from training so no training label
+    # lands on the first test feature date.
     train_end_exclusive = test_start - pd.Timedelta(days=1)
     train = df.loc[df["Date"] < train_end_exclusive].copy()
     test = df.loc[df["Date"] >= test_start].copy()
