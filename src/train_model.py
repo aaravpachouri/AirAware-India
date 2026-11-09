@@ -29,11 +29,13 @@ def build_model(include_city: bool = True) -> Pipeline:
     Set include_city=False to evaluate whether city-specific one-hot features
     hurt transfer to cities excluded from model fitting.
     """
-    transformers = []
-    if include_city:
-        transformers.append(
-            ("city", OneHotEncoder(handle_unknown="ignore"), ["City"])
+    transformers = [
+        (
+            "city",
+            OneHotEncoder(handle_unknown="ignore") if include_city else "drop",
+            ["City"],
         )
+    ]
     transformers.append(
         (
             "pollutant_imputer",
