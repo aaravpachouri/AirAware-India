@@ -52,7 +52,6 @@ from live_air import (
 )
 
 from live_forecast_features import build_live_forecast_features
-from live_aqi_validation import assess_cpcb_aqi_eligibility
 
 
 
@@ -1182,8 +1181,6 @@ def load_location_air(location_id, location_data):
     data = get_live_air_quality(location_id, location_data)
 
     aqi_result = estimate_cpcb_style_aqi(data["pollutants"])
-    # Latest-value snapshots do not establish CPCB averaging windows or coverage.
-    aqi_validation = assess_cpcb_aqi_eligibility(data['pollutants'], coverage=None)
 
 
 
@@ -1209,13 +1206,9 @@ def load_location_air(location_id, location_data):
 
         "pollutants": data["pollutants"],
 
-        "aqi": aqi_result["aqi"] if aqi_validation["eligible"] else None,
+        "aqi": aqi_result["aqi"],
 
-        "snapshot_index": aqi_result["aqi"],
-
-        "aqi_validation": aqi_validation,
-
-        "category": get_aqi_category(aqi_result["aqi"] if aqi_validation["eligible"] else None),
+        "category": get_aqi_category(aqi_result["aqi"]),
 
         "subindices": aqi_result["subindices"],
 
@@ -3650,15 +3643,63 @@ if page == "Latest Air":
 
 
     raw_aqi = safe_float(live["aqi"])
+
     live_subindices = live.get("subindices", {}) or {}
 
-    # Latest-value snapshots are not sufficient for a CPCB-period AQI.
-    current_aqi = None
-    st.info(
-        "A validated CPCB-period AQI is not available for this station yet. "
-        "The values below are the latest reported pollutant measurements; "
-        "their indicative sub-indices are not an official or coverage-validated AQI."
-    )
+
+
+    positive_pollutants = [
+
+        safe_float(value)
+
+        for value in pollutants.values()
+
+        if safe_float(value) is not None
+
+        and safe_float(value) > 0
+
+    ]
+
+
+
+    positive_subindices = [
+
+        safe_float(value)
+
+        for value in live_subindices.values()
+
+        if safe_float(value) is not None
+
+        and safe_float(value) > 0
+
+    ]
+
+
+
+    # Prefer the calculated AQI. If an all-zero result is returned while
+
+    # usable positive sub-indices exist, recover from those sub-indices.
+
+    # If the station truly has no usable positive pollution observations,
+
+    # show "Unavailable" instead of inventing an AQI of 0.
+
+    if raw_aqi is not None and raw_aqi > 0:
+
+        current_aqi = raw_aqi
+
+    elif positive_subindices:
+
+        current_aqi = max(positive_subindices)
+
+    elif positive_pollutants:
+
+        current_aqi = raw_aqi
+
+    else:
+
+        current_aqi = None
+
 
 
     tomorrow_prediction = None
@@ -3794,12 +3835,14 @@ if page == "Latest Air":
 
 
 
-    st.markdown("### Indicative Pollutant Sub-indices")
+    st.markdown("### AQI Pollutant Contributions")
 
     st.caption(
-        "Exploratory breakpoint-based indicators calculated from the latest "
-        "individual readings. They are not combined into an AQI because the "
-        "required averaging periods and observation coverage are not yet available."
+
+        "Estimated CPCB-style pollutant sub-indices. "
+
+        "The highest available sub-index determines the displayed estimated AQI."
+
     )
 
 
