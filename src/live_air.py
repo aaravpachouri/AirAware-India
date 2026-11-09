@@ -1306,21 +1306,6 @@ def get_latest_measurements(
 
         pollutants[pollutant] = normalized_value
 
-            _convert_value(
-
-                pollutant,
-
-                float(value),
-
-                unit,
-
-            )
-
-        )
-
-
-
-
 
     if not timestamps:
 
