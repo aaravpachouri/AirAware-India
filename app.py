@@ -3334,7 +3334,10 @@ html, body {{
 
 df = load_historical_data()
 
-historical_model = load_historical_model()
+# The historical model is large, so load it only when the user opens
+# Historical Research. Keeping it out of the default Latest Air startup
+# reduces memory pressure on small hosting instances.
+historical_model = None
 
 
 
@@ -4120,6 +4123,21 @@ Current monitoring data may also be delayed.
 
 
 elif page == "Historical Research":
+
+    try:
+
+        with st.spinner("Loading historical forecasting model..."):
+
+            historical_model = load_historical_model()
+
+    except Exception as error:
+
+        st.error("The historical forecasting model could not be loaded.")
+
+        st.code(str(error))
+
+        st.stop()
+
 
 
 
