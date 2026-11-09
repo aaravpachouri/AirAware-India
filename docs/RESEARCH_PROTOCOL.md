@@ -78,7 +78,7 @@ Missing pollutant values must never be silently replaced with zero: zero is a re
 
 ## Current limitations and next experiments
 
-The current project has a chronological evaluation for the historical city-day task. The next research steps are to rerun the pipeline after calendar-aware rolling-feature validation, add the three-day-mean baseline, perform city-held-out evaluation, and separately audit the live station forecast model's training/inference schema and unit conversions.
+The project now has a chronological evaluation, a three-day-mean baseline, calendar-aware rolling features, unit-normalization tests, and a deterministic city-held-out evaluation. The first city-aware Random Forest result on held-out cities (MAE 28.25) is worse than persistence (MAE 22.19), so cross-city generalization is not established. The current experiment compares city-aware and city-agnostic Random Forests; live station forecasts remain a separate, experimental task and must not inherit the historical model's accuracy claim.
 
 ## Dataset provenance
 
