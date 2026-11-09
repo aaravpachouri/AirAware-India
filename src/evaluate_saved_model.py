@@ -18,7 +18,7 @@ def main() -> None:
         )
 
     df = load_ml_data()
-    _, test, test_start = chronological_split(df)
+    train, test, test_start = chronological_split(df)
     model = joblib.load(model_path)
     predictions = model.predict(test[FEATURES])
 
@@ -29,13 +29,14 @@ def main() -> None:
 
     print("CHECKED-IN MODEL ARTIFACT EVALUATION")
     print(f"Artifact: {model_path.name}")
+    print(f"Training rows: {len(train)}")
     print(f"Test rows: {len(test)}")
+    print(f"Last training feature date: {train['Date'].max().date()}")
     print(f"First test feature date: {test_start.date()}")
-    print(f"Last training feature date: {(test_start - __import__('pandas').Timedelta(days=2)).date()}")
     print(f"Saved-model MAE: {mae:.2f} AQI points")
     print(f"Saved-model R²: {r2:.3f}")
     print(f"Persistence baseline MAE: {baseline_mae:.2f} AQI points")
-    print("Note: metrics inherit any upstream preprocessing limitations in the prepared dataset.")
+    print("Note: metrics inherit upstream preprocessing limitations in the prepared dataset.")
 
 
 if __name__ == "__main__":
