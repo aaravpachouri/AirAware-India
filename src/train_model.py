@@ -26,31 +26,7 @@ from evaluation_utils import (
 def main() -> None:
     df = load_ml_data()
     train, test, test_start = chronological_split(df)
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("city", OneHotEncoder(handle_unknown="ignore"), ["City"]),
-            (
-                "pollutant_imputer",
-                SimpleImputer(strategy="median", keep_empty_features=True),
-                POLLUTANT_FEATURES,
-            ),
-        ],
-        remainder="passthrough",
-    )
-    model = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            (
-                "model",
-                RandomForestRegressor(
-                    n_estimators=150,
-                    random_state=42,
-                    n_jobs=-1,
-                ),
-            ),
-        ]
-    )
+    model = build_model()
 
     model.fit(train[FEATURES], train["Next_Day_AQI"])
     predictions = model.predict(test[FEATURES])
