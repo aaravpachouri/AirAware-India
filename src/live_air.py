@@ -955,7 +955,7 @@ def find_sensor_compatible_locations(
         candidate.get("last_datetime") or "",
     ))
     results = []
-    for candidate in [item for item, _ in candidates[:max(1, min(int(max_candidates), 40))]]:
+    for candidate in candidates[:max(1, min(int(max_candidates), 40))]:
         try:
             detail = get_location(int(candidate["id"]))
             mapping = _sensor_mapping(detail)
