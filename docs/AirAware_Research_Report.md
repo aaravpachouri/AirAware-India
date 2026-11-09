@@ -152,7 +152,19 @@ The fresh model's MAE was approximately 12.8% lower than the persistence baselin
 
 ### Separate city-held-out experiment
 
-A deterministic group split held out six complete cities (4,508 observations) that were not used for fitting. The city-aware Random Forest achieved MAE **28.25 AQI points** (R² 0.545); a city-agnostic Random Forest achieved MAE **24.64** (R² 0.703); persistence achieved MAE **22.19**; and the three-day mean achieved MAE **24.64**. Neither Random Forest beat persistence on this split. This shows that the model's chronological result does not establish generalization to unseen cities. Per-city breakdowns are being revalidated separately before being reported.
+A deterministic group split held out six complete cities (4,508 observations) from model fitting; the remaining 20 cities formed the training set. This is a separate experiment from the chronological holdout.
+
+| Held-out city | Rows | City-aware RF MAE | City-agnostic RF MAE | Persistence MAE |
+|---|---:|---:|---:|---:|
+| Ahmedabad | 555 | 103.27 | 73.59 | 41.42 |
+| Chennai | 1,850 | 22.39 | 22.15 | 24.00 |
+| Coimbatore | 286 | 8.02 | 8.18 | 6.74 |
+| Ernakulam | 140 | 7.33 | 7.37 | 6.91 |
+| Jorapokhar | 660 | 22.81 | 23.55 | 28.52 |
+| Thiruvananthapuram | 1,017 | 10.08 | 10.19 | 10.75 |
+| **All held-out rows (weighted MAE)** | **4,508** | **28.25** | **24.64** | **22.19** |
+
+The city-aware model had R² 0.545; the city-agnostic variant had R² 0.703. The three-day mean baseline MAE was 24.64. Removing the city feature improved the aggregate Random Forest score, but neither model beat persistence on this held-out-city split. Ahmedabad was especially difficult for both models. This fixed split does not prove performance for every unseen city, but it demonstrates that the temporal holdout score must not be generalized to cities outside the training set.
 
 ### Training and test protocol
 
