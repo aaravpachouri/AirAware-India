@@ -105,23 +105,29 @@ The final historical model uses:
 - Month
 - Day of week
 
-### Previously reported results
+### Reproducible chronological evaluation
 
-| Metric | Previously reported result |
+GitHub Actions retrained the historical Random Forest and evaluated it on the checked-in prepared dataset using the shared date-based split.
+
+| Metric | Corrected evaluation |
 |---|---:|
-| Test MAE | 16.20 AQI points |
-| Test R² | 0.883 |
-| Persistence baseline MAE | 18.39 AQI points |
+| Training rows | 14,597 |
+| Held-out test rows | 8,368 |
+| First test feature date | 2019-05-26 |
+| Last training feature date | 2019-05-24 |
+| Test MAE | **16.18 AQI points** |
+| Test R² | **0.898** |
+| Persistence baseline MAE | **18.94 AQI points** |
 
-These figures come from an earlier evaluation run. The evaluation split has since been corrected to use chronological dates and avoid overlap between the training target window and the test feature window. **The figures above have not yet been reproduced with the corrected evaluation pipeline and should be treated as historical, not as the current validated result.**
+The model's MAE is about 14.6% lower than the persistence baseline on the same held-out rows. R² is not a percentage accuracy score.
+
+**Important preprocessing limitation:** the checked-in prepared dataset was created after pollutant missing values were median-imputed by the earlier cleaning script. That imputation happened before the chronological split, so feature preparation may leak information from later dates. The split now avoids overlap between training target windows and test feature dates, but these results remain **preliminary** until the dataset is rebuilt from raw observations with train-only imputation (or an explicitly documented complete-case policy).
 
 The baseline is a persistence model:
 
 ```text
 Tomorrow's AQI = Today's AQI
 ```
-
-**Important:** R² = 0.883 is not "88.3% accuracy."
 
 ### Reproduce the historical evaluation
 
