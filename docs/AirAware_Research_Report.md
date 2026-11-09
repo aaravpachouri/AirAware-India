@@ -135,21 +135,32 @@ This prevents future observations from being used to train the model before earl
 
 ## 6. Results
 
-The repository previously reported the following historical results:
+GitHub Actions successfully retrained the historical Random Forest on the checked-in prepared dataset and evaluated it with the shared chronological split.
 
-| Evaluation | Previously reported result |
+| Evaluation detail | Result |
 |---|---:|
-| Test MAE | 16.20 AQI points |
-| Test R² | 0.883 |
-| Persistence baseline MAE | 18.39 AQI points |
+| Training rows | 14,597 |
+| Held-out test rows | 8,368 |
+| Last training feature date | 2019-05-24 |
+| First test feature date | 2019-05-26 |
+| Test MAE | 16.18 AQI points |
+| Test R² | 0.898 |
+| Persistence baseline MAE | 18.94 AQI points |
 
-These values were produced by an earlier evaluation run. The evaluation pipeline has since been updated to split by date, keep training and test windows chronologically separated, and use a shared feature definition across model training and evaluation. **The earlier metrics have not yet been reproduced on the corrected split. They are retained here for provenance and must not be presented as the current validated performance.**
+The model's MAE was approximately 14.6% lower than the persistence baseline, measured on the same held-out rows. Performance varied across cities: test MAE ranged from 7.61 AQI points for Bengaluru to 42.95 for Ahmedabad. Aggregate metrics should not be interpreted as uniform performance across every location.
 
-### Reproducing results
+### Preprocessing limitation
+
+The date-based split keeps training target windows separate from test feature dates. However, the prepared dataset was created after the earlier `clean_data.py` script filled missing pollutant values using medians calculated over the full dataset. Because this preprocessing occurred before the split, it can leak information from later dates into the training process.
+
+These results are therefore reproducible **preliminary metrics**, not a final leakage-controlled estimate. The next research step is to rebuild the dataset from the original raw observations and perform imputation using training-period data only, or explicitly use a complete-case policy. The raw source file `data/city_day.csv` is ignored by Git and was not available to this run, so that stricter rerun remains outstanding.
+
+### Reproducing the current prepared-dataset evaluation
 
 From the repository root, ensure `data/ml_data.csv` is present and run:
 
 ```bash
+pip install -r requirements-dev.txt
 python src/train_model.py
 python src/evaluate_baseline.py
 python src/evaluate_predictions.py
@@ -157,11 +168,7 @@ python src/city_evaluation.py
 python src/feature_importance.py
 ```
 
-The commands print fresh metrics for the local dataset and regenerate the prediction plot. If the dataset is not available, first obtain the original historical source data and run the cleaning and feature-preparation pipeline. The updated evaluation utility tests run separately in GitHub Actions.
-
-### Interpretation
-
-MAE expresses the average absolute forecast error in AQI points. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score. Model performance should also be compared with the persistence baseline on the exact same held-out test rows.
+The focused GitHub Actions workflow compiles the application and research scripts, runs the temporal-split regression tests, and executes these evaluation commands. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score.
 
 ---
 
