@@ -47,7 +47,7 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
       - name: Compile application and research scripts
         run: python -m compileall -q app.py src
-      - name: Run research and feature-engineering tests
+      - name: Run complete regression test suite
         run: python -m pytest -q tests
       - name: Evaluate checked-in historical model artifact on the committed prepared dataset
         run: python src/evaluate_saved_model.py
