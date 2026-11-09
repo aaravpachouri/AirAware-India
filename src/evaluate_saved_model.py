@@ -36,7 +36,10 @@ def main() -> None:
     print(f"Saved-model MAE: {mae:.2f} AQI points")
     print(f"Saved-model R²: {r2:.3f}")
     print(f"Persistence baseline MAE: {baseline_mae:.2f} AQI points")
-    print("Note: metrics inherit upstream preprocessing limitations in the prepared dataset.")
+    print(
+        "Provenance: compare this artifact score with the raw-data rebuild "
+        "and training-only imputation run in GitHub Actions."
+    )
 
 
 if __name__ == "__main__":
