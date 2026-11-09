@@ -9,14 +9,13 @@ def make_frame(days: int = 20) -> pd.DataFrame:
     rows = []
     for day in pd.date_range("2020-01-01", periods=days, freq="D"):
         row = {"Date": day, "City": "Test City", "Next_Day_AQI": 80.0}
-        row.update({feature: (0.0 if feature == "City" else 1.0) for feature in FEATURES})
+        row.update({feature: 1.0 for feature in FEATURES if feature != "City"})
         rows.append(row)
     return pd.DataFrame(rows)
 
 
 def test_split_keeps_train_and_test_chronological_and_target_windows_disjoint():
-    frame = make_frame()
-    train, test, test_start = chronological_split(frame)
+    train, test, test_start = chronological_split(make_frame())
 
     assert not train.empty
     assert not test.empty
@@ -37,9 +36,8 @@ def test_split_is_deterministic():
 
 
 def test_split_rejects_too_few_distinct_dates():
-    frame = make_frame(days=3)
     with pytest.raises(ValueError, match="four distinct dates"):
-        chronological_split(frame)
+        chronological_split(make_frame(days=3))
 
 
 def test_split_rejects_invalid_fraction():
