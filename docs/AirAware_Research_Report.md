@@ -405,11 +405,13 @@ The repository contains the main data-processing, training, evaluation, and appl
 Core scripts include:
 
 ```text
+src/download_source_data.py
 src/clean_data.py
 src/eda.py
 src/prepare_ml_data.py
 src/train_model.py
 src/train_live_model.py
+src/evaluate_saved_model.py
 src/evaluate_baseline.py
 src/evaluate_predictions.py
 src/feature_importance.py
@@ -418,7 +420,21 @@ src/live_air.py
 src/live_forecast.py
 ```
 
-The project can be run locally with:
+Rebuild the research model reproducibly with:
+
+```bash
+pip install -r requirements-dev.txt
+python src/download_source_data.py
+python src/clean_data.py
+python src/prepare_ml_data.py
+python src/train_model.py
+python src/evaluate_baseline.py
+python src/evaluate_predictions.py
+python src/city_evaluation.py
+python src/feature_importance.py
+```
+
+Run the interactive dashboard with:
 
 ```bash
 pip install -r requirements.txt
