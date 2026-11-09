@@ -107,21 +107,21 @@ The final historical model uses:
 
 ### Reproducible chronological evaluation
 
-GitHub Actions retrained the historical Random Forest and evaluated it on the checked-in prepared dataset using the shared date-based split.
+GitHub Actions evaluated both the checked-in model artifact and a fresh model retrained with the corrected chronological split. Both used the same 8,368 held-out rows from the checked-in prepared dataset.
 
-| Metric | Corrected evaluation |
-|---|---:|
-| Training rows | 14,597 |
-| Held-out test rows | 8,368 |
-| First test feature date | 2019-05-26 |
-| Last training feature date | 2019-05-24 |
-| Test MAE | **16.18 AQI points** |
-| Test R² | **0.898** |
-| Persistence baseline MAE | **18.94 AQI points** |
+| Metric | Checked-in model artifact | Fresh chronological retrain |
+|---|---:|---:|
+| Test MAE | 11.39 AQI points | 16.18 AQI points |
+| Test R² | 0.938 | 0.898 |
+| Persistence baseline MAE | 18.94 AQI points | 18.94 AQI points |
 
-The model's MAE is about 14.6% lower than the persistence baseline on the same held-out rows. R² is not a percentage accuracy score.
+The split used 14,597 training rows. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. The fresh retrain's MAE was about 14.6% lower than the persistence baseline on the same held-out rows.
 
-**Important preprocessing limitation:** the checked-in prepared dataset was created after pollutant missing values were median-imputed by the earlier cleaning script. That imputation happened before the chronological split, so feature preparation may leak information from later dates. The split now avoids overlap between training target windows and test feature dates, but these results remain **preliminary** until the dataset is rebuilt from raw observations with train-only imputation (or an explicitly documented complete-case policy).
+**Important limitations:**
+
+1. The checked-in model artifact's original training cutoff is not recorded. Its much stronger score may reflect training on future dates, so its result is not accepted as proof of leakage-free out-of-sample performance.
+2. The prepared dataset was generated after pollutant missing values were median-imputed using the full dataset. This may leak information from later dates into preprocessing. Both scores are therefore **preliminary** until the dataset is rebuilt from raw observations with training-period-only imputation (or a documented complete-case policy).
+3. R² is not a percentage accuracy score.
 
 The baseline is a persistence model:
 
@@ -140,6 +140,7 @@ pip install -r requirements-dev.txt
 Then run:
 
 ```bash
+python src/evaluate_saved_model.py
 python src/train_model.py
 python src/evaluate_baseline.py
 python src/evaluate_predictions.py
@@ -147,7 +148,7 @@ python src/city_evaluation.py
 python src/feature_importance.py
 ```
 
-The training and evaluation scripts now share the same date-aware split and feature definition. The scripts print fresh metrics for the dataset present on your machine. The raw historical dataset is not included in every checkout, so results cannot be regenerated without obtaining the source data and running the preparation pipeline.
+The saved-artifact evaluation and fresh training scripts now share the same date-aware split and feature definition. The scripts print fresh metrics for the dataset present on your machine. The raw historical dataset is not included in every checkout, so results cannot be regenerated without obtaining the source data and running the preparation pipeline.
 
 ## Feature Importance
 
