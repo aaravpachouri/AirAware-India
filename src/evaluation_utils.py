@@ -45,7 +45,7 @@ def load_ml_data() -> pd.DataFrame:
         )
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df["Next_Day_AQI"] = pd.to_numeric(df["Next_Day_AQI"], errors="coerce")
-    df = df.dropna(subset=["Date", "City", "Next_Day_AQI"])
+    df = df.dropna(subset=["Date", "Next_Day_AQI", *FEATURES])
     df = df.sort_values(["Date", "City"]).reset_index(drop=True)
     if df.empty:
         raise ValueError("The ML dataset contains no valid dated target rows.")
