@@ -4519,21 +4519,22 @@ elif page == "Model Performance":
 
     with c2:
 
-        st.metric("Chronological test MAE", "16.18")
+        st.metric("Saved-model MAE", "11.39")
 
 
 
     with c3:
 
-        st.metric("Chronological test R²", "0.898")
+        st.metric("Saved-model R²", "0.938")
 
 
 
     st.warning(
-        "Preliminary reproducible result: these metrics were regenerated on a "
-        "chronological holdout, but the prepared dataset's pollutant medians were "
-        "calculated before the split. This may introduce preprocessing leakage. "
-        "A raw-data rerun with train-only imputation is still needed."
+        "Caution: the checked-in model's original training cutoff is not recorded, "
+        "so its score on a later-date holdout may be contaminated if the model saw "
+        "future dates during training. A fresh chronological retrain scored MAE 16.18 "
+        "and R² 0.898. Both evaluations also inherit a preprocessing limitation: "
+        "pollutant medians were calculated before the split. Treat these as preliminary."
     )
 
 
@@ -4544,16 +4545,13 @@ elif page == "Model Performance":
 
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
-<strong>Test MAE — 16.18 AQI points</strong><br>
-The model's average absolute error on 8,368 held-out observations was 16.18 AQI points.<br><br>
+<strong>Checked-in model artifact — MAE 11.39 AQI points; R² 0.938</strong><br>
+These are measured scores for the model file currently checked into the repository, evaluated on 8,368 held-out rows. The artifact's original training dates are unknown, so this is not proof of leakage-free out-of-sample performance.<br><br>
 
-<strong>Test R² — 0.898</strong><br>
-This describes variation explained relative to a constant-mean predictor. It is not a percentage accuracy score.<br><br>
+<strong>Fresh chronological retrain — MAE 16.18 AQI points; R² 0.898</strong><br>
+Retraining from the current source code using the chronological split produced these scores on the same held-out rows. The persistence baseline MAE was 18.94 AQI points.<br><br>
 
-<strong>Persistence baseline MAE — 18.94 AQI points</strong><br>
-Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same test rows.<br><br>
-
-The training set contained 14,597 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Results vary by city and should be interpreted alongside the preprocessing limitation above.
+The split uses 14,597 training rows, with the last training feature date on 2019-05-24 and the first test feature date on 2019-05-26. The prepared dataset's pollutant medians were calculated before the split, so both scores remain preliminary until raw-data preprocessing is rebuilt using training-period-only imputation. R² is not a percentage accuracy score.
 </div>
 """).strip()
 
