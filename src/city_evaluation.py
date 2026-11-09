@@ -1,87 +1,43 @@
-"""Evaluate next-day AQI errors by city using the trained historical model.
-
-Run from the repository root:
-    python src/city_evaluation.py
-
-This script deliberately uses the same feature order as src/train_model.py.
-"""
-from pathlib import Path
-
+"""Evaluate next-day AQI errors by city on the shared chronological test set."""
 import joblib
-import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = ROOT / "data" / "ml_data.csv"
-MODEL_PATH = ROOT / "models" / "airaware_random_forest.joblib"
-
-FEATURES = [
-    "City",
-    "Previous_Day_AQI",
-    "AQI_3Day_Avg",
-    "AQI_Change",
-    "PM2.5",
-    "PM10",
-    "NO2",
-    "CO",
-    "SO2",
-    "O3",
-    "AQI",
-    "Day",
-    "Month",
-    "DayOfWeek",
-]
+from evaluation_utils import FEATURES, ROOT, chronological_split, load_ml_data
 
 
 def main() -> None:
-    if not DATA_PATH.is_file():
+    df = load_ml_data()
+    _, test, test_start = chronological_split(df)
+    model_path = ROOT / "models" / "airaware_random_forest.joblib"
+    if not model_path.is_file():
         raise FileNotFoundError(
-            f"Dataset not found at {DATA_PATH}. Run the data preparation "
-            "pipeline first and ensure data/ml_data.csv exists."
-        )
-    if not MODEL_PATH.is_file():
-        raise FileNotFoundError(
-            f"Trained model not found at {MODEL_PATH}. Run "
-            "python src/train_model.py first."
+            f"Trained model not found at {model_path}. Run python src/train_model.py first."
         )
 
-    df = pd.read_csv(DATA_PATH)
-    required = {"Date", "City", "Next_Day_AQI", *FEATURES}
-    missing = sorted(required.difference(df.columns))
-    if missing:
-        raise ValueError(
-            "The ML dataset is missing required columns: " + ", ".join(missing)
-        )
-
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df.dropna(subset=["Date", "City", "Next_Day_AQI"])
-    df = df.sort_values(["Date", "City"]).reset_index(drop=True)
-    if len(df) < 2:
-        raise ValueError("At least two valid rows are required for evaluation.")
-
-    # Keep the evaluation window consistent with the existing 80/20
-    # chronological row split used by train_model.py.
-    split_index = int(len(df) * 0.8)
-    split_index = min(max(split_index, 1), len(df) - 1)
-    test = df.iloc[split_index:].copy()
-
-    model = joblib.load(MODEL_PATH)
+    model = joblib.load(model_path)
+    test = test.copy()
     test["Prediction"] = model.predict(test[FEATURES])
 
-    results = (
-        test.groupby("City", sort=True)
-        .apply(
-            lambda group: mean_absolute_error(
-                group["Next_Day_AQI"], group["Prediction"]
-            ),
-            include_groups=False,
+    rows = []
+    for city, group in test.groupby("City", sort=True):
+        rows.append(
+            {
+                "City": city,
+                "Test rows": len(group),
+                "MAE (AQI points)": mean_absolute_error(
+                    group["Next_Day_AQI"], group["Prediction"]
+                ),
+            }
         )
-        .sort_values()
-    )
 
-    print(f"Evaluation rows: {len(test)}")
+    results = sorted(rows, key=lambda row: row["MAE (AQI points)"])
+    print(f"First test feature date: {test_start.date()}")
     print("MAE by city (AQI points; lower is better):")
-    print(results.to_string())
+    for row in results:
+        print(
+            f"{row['City']}: MAE={row['MAE (AQI points)']:.2f} "
+            f"(n={row['Test rows']})"
+        )
 
 
 if __name__ == "__main__":
