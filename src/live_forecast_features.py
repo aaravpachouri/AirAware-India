@@ -7,6 +7,37 @@ import pandas as pd
 
 
 LIVE_FEATURES = ["AQI", "PM2.5", "PM10", "Day", "Month", "DayOfWeek"]
+OPTIONAL_POLLUTANT_FEATURES = {"PM2.5": "pm25", "PM10": "pm10"}
+
+
+def _required_non_negative(value, feature: str) -> float:
+    """Validate a required numeric model input such as the current AQI."""
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Forecast requires a valid {feature} measurement.") from None
+    if not math.isfinite(normalized) or normalized < 0:
+        raise ValueError(
+            f"Forecast requires a finite, non-negative {feature} measurement."
+        )
+    return normalized
+
+
+def _optional_pollutant(value, feature: str) -> float:
+    """Preserve absent pollutant data as NaN for the model's fitted imputer."""
+    if value is None or pd.isna(value):
+        return float("nan")
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"Forecast received an invalid {feature} measurement."
+        ) from None
+    if not math.isfinite(normalized) or normalized < 0:
+        raise ValueError(
+            f"Forecast requires a finite, non-negative {feature} measurement."
+        )
+    return normalized
 
 
 def build_live_forecast_features(
@@ -14,22 +45,17 @@ def build_live_forecast_features(
     pollutants: dict,
     timestamp,
 ) -> pd.DataFrame:
-    """Build the exact live-model schema without treating missing data as zero."""
-    values = {"AQI": current_aqi, "PM2.5": pollutants.get("pm25"), "PM10": pollutants.get("pm10")}
-    normalized = {}
-    for feature, raw_value in values.items():
-        try:
-            value = float(raw_value)
-        except (TypeError, ValueError):
-            raise ValueError(
-                f"Forecast requires a valid {feature} measurement; "
-                "missing values are not replaced with zero."
-            ) from None
-        if not math.isfinite(value) or value < 0:
-            raise ValueError(
-                f"Forecast requires a finite, non-negative {feature} measurement."
-            )
-        normalized[feature] = value
+    """Build training-schema inputs; fitted training imputation handles gaps.
+
+    PM2.5 and PM10 are optional because the deployed training pipeline fits a
+    median imputer on historical training data for these exact features.
+    Missing observations remain NaN here and are never replaced with zero.
+    """
+    normalized = {
+        "AQI": _required_non_negative(current_aqi, "AQI"),
+        "PM2.5": _optional_pollutant(pollutants.get("pm25"), "PM2.5"),
+        "PM10": _optional_pollutant(pollutants.get("pm10"), "PM10"),
+    }
 
     try:
         observed_at = pd.Timestamp(timestamp)
