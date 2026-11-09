@@ -38,3 +38,13 @@ def test_missing_live_pollutants_are_not_substituted_with_zero(pollutants):
 def test_invalid_timestamp_is_rejected():
     with pytest.raises(ValueError, match="valid measurement timestamp"):
         build_live_forecast_features(100, {"pm25": 20, "pm10": 50}, "not-a-date")
+
+
+
+def test_negative_live_pollutant_is_rejected():
+    with pytest.raises(ValueError, match="finite, non-negative PM2.5"):
+        build_live_forecast_features(
+            100,
+            {"pm25": -1, "pm10": 50},
+            "2026-11-10T08:30:00Z",
+        )
