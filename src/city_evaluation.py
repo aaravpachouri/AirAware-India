@@ -8,7 +8,7 @@ from evaluation_utils import FEATURES, ROOT, chronological_split, load_ml_data
 def main() -> None:
     df = load_ml_data()
     _, test, test_start = chronological_split(df)
-    model_path = ROOT / "models" / "airaware_random_forest.joblib"
+    model_path = ROOT / "models" / "airaware_random_forest_v3.joblib"
     if not model_path.is_file():
         raise FileNotFoundError(
             f"Trained model not found at {model_path}. Run python src/train_model.py first."

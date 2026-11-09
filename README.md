@@ -12,7 +12,10 @@ AirAware explores whether a lightweight machine-learning model can provide usefu
 
 ## Research Question
 
-> **Can lightweight machine-learning models provide useful short-term air-quality forecasts at local monitoring locations using pollutant and temporal features?**
+> **Can lightweight machine-learning models provide useful next-day AQI forecasts from historical city-level Indian observations, and how well do they generalize to later dates and unseen cities?**
+
+See the [research protocol](docs/RESEARCH_PROTOCOL.md) for the evaluation rules, validation splits, baselines, and limitations.
+Dataset provenance and intended-use limitations are documented in the [dataset card](docs/DATA_CARD.md).
 
 ## What It Does
 
@@ -117,15 +120,18 @@ GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retraine
 
 | Metric | Leakage-controlled temporal evaluation |
 |---|---:|
-| Training rows | 14,597 |
-| Held-out test rows | 8,368 |
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Test MAE | **16.21 AQI points** |
-| Test R² | **0.898** |
-| Persistence baseline MAE | **18.94 AQI points** |
+| Test MAE | **16.41 AQI points** |
+| Test R² | **0.890** |
+| Persistence baseline MAE | **18.81 AQI points** |
+| Three-day mean baseline MAE | **22.70 AQI points** |
 
-The model's MAE is about 14.4% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
+The model's MAE is about 12.8% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
+
+**Unseen-city validation is a separate and harder test.** On a deterministic holdout of six cities (4,508 observations), the city-aware Random Forest MAE was 28.25 AQI points, a city-agnostic variant scored 24.64, and persistence scored 22.19. Neither Random Forest beat persistence on this split, so cross-city generalization is not established. See the [research protocol](docs/RESEARCH_PROTOCOL.md).
 
 **Why the older model score is not used:** the previous checked-in artifact scored MAE 11.39 and R² 0.938 on a later-date holdout, but its original training cutoff is undocumented. It may have seen future dates during training, so that score is not accepted as reliable out-of-sample evidence.
 
@@ -164,7 +170,7 @@ To evaluate an existing compatible model artifact against the prepared dataset, 
 
 ## Feature Importance
 
-The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8068), followed by PM2.5 (0.0718). Feature importance is descriptive, not causal.
+The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8034), followed by PM2.5 (0.0753). Feature importance is descriptive, not causal.
 
 This is consistent with the short-horizon nature of the forecasting problem: today's air-quality state contains substantial information about the following day's conditions.
 
@@ -204,6 +210,8 @@ The dashboard therefore clearly treats this component as a research prototype.
 
 The historical model was developed using Indian city-level air-quality observations from **2015–2020**.
 
+**Data provenance:** The raw dataset is the Air Quality Data in India city-day dataset, originally distributed on [Kaggle](https://www.kaggle.com/datasets/rohanrao/air-quality-data-in-india). The project downloads a pinned [GitHub mirror](https://github.com/govindlabhala-cell/India-Air-Quality-EDA) and verifies its SHA-256 checksum before processing. The [TUMI data portal](https://portal.transport-data.org/@tumi/urban-air-pollution-india-2015-2020) lists the dataset under CC0 1.0. The mirror is used for reproducibility and is not claimed as the original publisher.
+
 The data-processing pipeline includes:
 
 1. Removing invalid dates and unusable AQI records
@@ -211,7 +219,7 @@ The data-processing pipeline includes:
 3. Normalizing pollutant columns
 4. Creating chronological city-level features
 5. Creating previous-day AQI
-6. Creating a rolling 3-day AQI average
+6. Creating a rolling 3-day AQI average only when all three calendar days are consecutive
 7. Creating AQI change
 8. Creating calendar features
 9. Creating a true next-day prediction target
@@ -220,45 +228,47 @@ The data-processing pipeline includes:
 
 ```text
 AirAware-India/
-│
 ├── app.py
 ├── README.md
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
-├── .gitignore
-│
 ├── data/
 │   ├── cleaned_city_day.csv
 │   └── ml_data.csv
-│
 ├── docs/
+│   ├── DATA_CARD.md
+│   ├── RESEARCH_PROTOCOL.md
+│   ├── AirAware_Research_Report.md
 │   └── screenshots/
-│
 ├── models/
 │   ├── airaware_random_forest_v3.joblib
 │   └── airaware_live_rf.joblib
-│
 ├── reports/
 │   ├── actual_vs_predicted.png
 │   ├── aqi_distribution.png
 │   ├── average_aqi_by_city.png
 │   └── pm25_vs_aqi.png
-│
-└── src/
-    ├── download_source_data.py
-    ├── clean_data.py
-    ├── eda.py
-    ├── prepare_ml_data.py
-    ├── train_model.py
-    ├── train_live_model.py
-    ├── evaluate_saved_model.py
-    ├── evaluate_baseline.py
-    ├── evaluate_predictions.py
-    ├── feature_importance.py
-    ├── city_evaluation.py
-    ├── live_air.py
-    └── live_forecast.py
+├── src/
+│   ├── download_source_data.py
+│   ├── clean_data.py
+│   ├── prepare_ml_data.py
+│   ├── train_model.py
+│   ├── train_live_model.py
+│   ├── evaluate_baseline.py
+│   ├── evaluate_city_holdout.py
+│   ├── evaluate_predictions.py
+│   ├── city_evaluation.py
+│   ├── evaluation_utils.py
+│   ├── live_air.py
+│   ├── live_forecast.py
+│   └── live_forecast_features.py
+└── tests/
+    ├── test_evaluation_utils.py
+    ├── test_data_preparation.py
+    ├── test_city_holdout.py
+    ├── test_live_air_units.py
+    └── test_live_forecast_features.py
 ```
 
 ## Tech Stack

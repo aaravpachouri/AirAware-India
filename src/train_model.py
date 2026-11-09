@@ -23,17 +23,28 @@ from evaluation_utils import (
 )
 
 
-def build_model() -> Pipeline:
-    """Build a pipeline that learns imputation values from training rows only."""
+def build_model(include_city: bool = True) -> Pipeline:
+    """Build a train-only imputation pipeline.
+
+    Set include_city=False to evaluate whether city-specific one-hot features
+    hurt transfer to cities excluded from model fitting.
+    """
+    transformers = [
+        (
+            "city",
+            OneHotEncoder(handle_unknown="ignore") if include_city else "drop",
+            ["City"],
+        )
+    ]
+    transformers.append(
+        (
+            "pollutant_imputer",
+            SimpleImputer(strategy="median", keep_empty_features=True),
+            POLLUTANT_FEATURES,
+        )
+    )
     preprocessor = ColumnTransformer(
-        transformers=[
-            ("city", OneHotEncoder(handle_unknown="ignore"), ["City"]),
-            (
-                "pollutant_imputer",
-                SimpleImputer(strategy="median", keep_empty_features=True),
-                POLLUTANT_FEATURES,
-            ),
-        ],
+        transformers=transformers,
         remainder="passthrough",
     )
     return Pipeline(
@@ -49,7 +60,6 @@ def build_model() -> Pipeline:
             ),
         ]
     )
-
 
 def main() -> None:
     df = load_ml_data()

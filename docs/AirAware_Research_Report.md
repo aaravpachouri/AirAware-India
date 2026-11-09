@@ -4,7 +4,7 @@
 
 AirAware India is a research-oriented machine-learning system for short-term air-quality forecasting in India. The project combines historical city-level air-quality observations with a public-facing monitoring and forecasting dashboard.
 
-The core research task is next-day AQI prediction using pollutant, temporal, and recent AQI features. A Random Forest regression model achieved a test MAE of **16.20 AQI points** and an R² of **0.883** on the held-out historical test set. A persistence baseline, defined as predicting tomorrow's AQI as today's AQI, achieved an MAE of **18.39 AQI points** on the corresponding evaluation data.
+The core research task is next-day AQI prediction using pollutant, temporal, and recent AQI features. A Random Forest regression model achieved a test MAE of **16.41 AQI points** and an R² of **0.890** on the held-out historical test set. A persistence baseline, defined as predicting tomorrow's AQI as today's AQI, achieved an MAE of **18.81 AQI points** on the corresponding evaluation data.
 
 The project also includes an OpenAQ-based monitoring pipeline that discovers Indian monitoring stations, retrieves recent pollutant observations, calculates an **estimated CPCB-style AQI**, and combines the current state with the forecasting model to produce an understandable tomorrow outlook.
 
@@ -27,7 +27,7 @@ The project was designed around two goals:
 
 ## 2. Research Question
 
-> Can lightweight machine-learning models provide useful short-term air-quality forecasts at local monitoring locations using pollutant and temporal features?
+> Can lightweight machine-learning models provide useful next-day AQI forecasts from historical city-level Indian observations, and how well do they generalize to later dates and unseen cities?
 
 The primary prediction target is:
 
@@ -63,7 +63,7 @@ The cleaning pipeline:
 
 1. Removed observations without a usable AQI target.
 2. Restricted AQI to the 0-500 range for the research dataset.
-3. Filled missing pollutant values for the exploration stage.
+3. Retained missing pollutant values for model-time imputation fitted only on training rows.
 4. Converted dates to datetime values.
 5. Sorted observations chronologically by city and date.
 
@@ -88,7 +88,7 @@ DayOfWeek
 
 A next-day date check was also used so that the target represented the AQI for the actual following calendar day rather than simply the next available row.
 
-The resulting machine-learning dataset contains **22,981 observations**.
+The resulting machine-learning dataset contains **22,468 rows before final evaluation filtering**.
 
 ---
 
@@ -139,15 +139,32 @@ GitHub Actions rebuilt the historical dataset from a checksum-verified raw sourc
 
 | Evaluation detail | Result |
 |---|---:|
-| Training rows | 14,597 |
-| Held-out test rows | 8,368 |
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Test MAE | 16.21 AQI points |
-| Test R² | 0.898 |
-| Persistence baseline MAE | 18.94 AQI points |
+| Test MAE | 16.41 AQI points |
+| Test R² | 0.890 |
+| Persistence baseline MAE | 18.81 AQI points |
+| Three-day mean baseline MAE | 22.70 AQI points |
 
-The fresh model's MAE was approximately 14.4% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
+The fresh model's MAE was approximately 12.8% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
+
+### Separate city-held-out experiment
+
+A deterministic group split held out six complete cities (4,508 observations) from model fitting; the remaining 20 cities formed the training set. This is a separate experiment from the chronological holdout.
+
+| Held-out city | Rows | City-aware RF MAE | City-agnostic RF MAE | Persistence MAE |
+|---|---:|---:|---:|---:|
+| Ahmedabad | 555 | 103.27 | 73.59 | 41.42 |
+| Chennai | 1,850 | 22.39 | 22.15 | 24.00 |
+| Coimbatore | 286 | 8.02 | 8.18 | 6.74 |
+| Ernakulam | 140 | 7.33 | 7.37 | 6.91 |
+| Jorapokhar | 660 | 22.81 | 23.55 | 28.52 |
+| Thiruvananthapuram | 1,017 | 10.08 | 10.19 | 10.75 |
+| **All held-out rows (weighted MAE)** | **4,508** | **28.25** | **24.64** | **22.19** |
+
+The city-aware model had R² 0.545; the city-agnostic variant had R² 0.703. The three-day mean baseline MAE was 24.64. Removing the city feature improved the aggregate Random Forest score, but neither model beat persistence on this held-out-city split. Ahmedabad was especially difficult for both models. This fixed split does not prove performance for every unseen city, but it demonstrates that the temporal holdout score must not be generalized to cities outside the training set.
 
 ### Training and test protocol
 
@@ -171,16 +188,16 @@ The leakage-controlled training run identified current AQI as the dominant predi
 
 | Feature | Importance |
 |---|---:|
-| AQI | 0.806811 |
-| PM2.5 | 0.071782 |
-| CO | 0.017570 |
-| PM10 | 0.017421 |
-| AQI_3Day_Avg | 0.014257 |
-| NO2 | 0.010475 |
-| O3 | 0.009814 |
-| SO2 | 0.009709 |
-| AQI_Change | 0.009553 |
-| Previous_Day_AQI | 0.007520 |
+| AQI | 0.803441 |
+| PM2.5 | 0.075267 |
+| PM10 | 0.017466 |
+| CO | 0.017024 |
+| AQI_3Day_Avg | 0.014914 |
+| NO2 | 0.010235 |
+| O3 | 0.009664 |
+| AQI_Change | 0.009662 |
+| SO2 | 0.009638 |
+| Previous_Day_AQI | 0.007309 |
 
 This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal.
 
@@ -365,11 +382,11 @@ The historical model was trained on city-level historical observations. Live dat
 
 ### AQI limitations
 
-The live estimate does not necessarily reproduce the official averaging procedure used for government AQI reporting.
+The live estimate does not necessarily reproduce the official averaging procedure used for government AQI reporting. OpenAQ unit conversion uses conventional 25 °C / 1 atm approximations for gas measurements reported in ppb or ppm.
 
 ### Forecast limitations
 
-The persistence baseline is strong, showing that short-horizon air-quality forecasting is inherently challenging.
+The persistence baseline is strong, showing that short-horizon air-quality forecasting is inherently challenging. The separate live station forecast uses a different model and input distribution; it has not yet been validated against subsequent measurements from the selected station, so the historical city-day metrics do not establish live forecast accuracy.
 
 ### Distribution limitations
 
@@ -385,8 +402,8 @@ Live station measurements can be delayed or unavailable.
 
 Possible extensions include:
 
-- stronger temporal validation
-- city-held-out evaluation
+- repeated city-held-out splits and model-family benchmarks
+- station-aligned validation of live forecasts
 - station-specific models
 - meteorological features
 - probabilistic forecasts
@@ -413,11 +430,13 @@ src/train_model.py
 src/train_live_model.py
 src/evaluate_saved_model.py
 src/evaluate_baseline.py
+src/evaluate_city_holdout.py
 src/evaluate_predictions.py
 src/feature_importance.py
 src/city_evaluation.py
 src/live_air.py
 src/live_forecast.py
+src/live_forecast_features.py
 ```
 
 Rebuild the research model reproducibly with:

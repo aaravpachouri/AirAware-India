@@ -1020,107 +1020,60 @@ def _sensor_mapping(
 
 
 def _convert_value(
-
     pollutant: str,
-
     value: float,
-
     unit: str,
-
 ) -> float:
+    """Convert supported OpenAQ units to the units used by CPCB breakpoints.
 
+    PM2.5, PM10, NO2, SO2 and O3 are returned in µg/m³.
+    CO is returned in mg/m³. Gas conversion factors use the conventional
+    25 °C, 1 atm approximation; the live AQI remains explicitly an estimate.
+    """
+    import math
 
+    if pollutant not in {"pm25", "pm10", "no2", "so2", "o3", "co"}:
+        raise ValueError(f"Unsupported pollutant: {pollutant}")
 
-    unit = unit.lower()
+    value = float(value)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"Invalid concentration for {pollutant}: {value}")
 
+    normalized_unit = (
+        str(unit or "")
+        .strip()
+        .lower()
+        .replace("μ", "µ")
+        .replace("³", "3")
+        .replace(" ", "")
+    )
 
+    is_co = pollutant == "co"
+    if normalized_unit in {"µg/m3", "ug/m3"}:
+        return value / 1000 if is_co else value
 
+    if normalized_unit == "mg/m3":
+        return value if is_co else value * 1000
 
+    factors_ug_per_ppb = {"no2": 1.88, "so2": 2.62, "o3": 1.96}
+    if normalized_unit == "ppb":
+        if is_co:
+            return value * 0.001145  # mg/m³
+        if pollutant in factors_ug_per_ppb:
+            return value * factors_ug_per_ppb[pollutant]
+        raise ValueError(f"ppb is not a supported unit for {pollutant}")
 
-    # Already µg/m³
+    if normalized_unit == "ppm":
+        if is_co:
+            return value * 1.145  # mg/m³
+        if pollutant in factors_ug_per_ppb:
+            return value * factors_ug_per_ppb[pollutant] * 1000
+        raise ValueError(f"ppm is not a supported unit for {pollutant}")
 
-    if (
-
-        "µg/m³" in unit
-
-        or "ug/m3" in unit
-
-    ):
-
-        return value
-
-
-
-
-
-    # NO2: ppb → µg/m³
-
-    if (
-
-        pollutant == "no2"
-
-        and "ppb" in unit
-
-    ):
-
-        return value * 1.88
-
-
-
-
-
-    # SO2: ppb → µg/m³
-
-    if (
-
-        pollutant == "so2"
-
-        and "ppb" in unit
-
-    ):
-
-        return value * 2.62
-
-
-
-
-
-    # CO: ppb → mg/m³
-
-    if (
-
-        pollutant == "co"
-
-        and "ppb" in unit
-
-    ):
-
-        return value * 0.001145
-
-
-
-
-
-    # CO already mg/m³
-
-    if (
-
-        pollutant == "co"
-
-        and "mg/m3" in unit
-
-    ):
-
-        return value
-
-
-
-
-
-    return value
-
-
-
+    raise ValueError(
+        f"Unsupported OpenAQ unit {unit!r} for {pollutant}; "
+        "expected µg/m³, mg/m³, ppb or ppm as applicable."
+    )
 
 
 # ============================================================
@@ -1341,22 +1294,18 @@ def get_latest_measurements(
 
 
 
-        pollutants[pollutant] = (
-
-            _convert_value(
-
+        try:
+            normalized_value = _convert_value(
                 pollutant,
-
                 float(value),
-
                 unit,
-
             )
+        except (TypeError, ValueError):
+            # Do not feed unknown units or invalid concentrations into AQI
+            # breakpoints. Other valid pollutant observations can still be used.
+            continue
 
-        )
-
-
-
+        pollutants[pollutant] = normalized_value
 
 
     if not timestamps:

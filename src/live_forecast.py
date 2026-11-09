@@ -33,16 +33,13 @@ def predict_tomorrow():
         data["timestamp"]
     )
 
-    features = pd.DataFrame([{
-        "AQI": current_aqi,
-        "PM2.5": pollutants.get("pm25"),
-        "PM10": pollutants.get("pm10"),
-        "Day": timestamp.day,
-        "Month": timestamp.month,
-        "DayOfWeek": timestamp.dayofweek,
-    }])
+    from live_forecast_features import build_live_forecast_features
 
-    features = features.fillna(0)
+    features = build_live_forecast_features(
+        current_aqi=current_aqi,
+        pollutants=pollutants,
+        timestamp=timestamp,
+    )
 
     model = joblib.load(MODEL_PATH)
 
