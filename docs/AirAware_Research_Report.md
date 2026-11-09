@@ -184,7 +184,7 @@ The leading feature importances were approximately:
 | SO2 | 0.009 |
 | Previous_Day_AQI | 0.007 |
 
-This result is consistent with the short forecasting horizon: the current air-quality state contains substantial information about the following day's state.
+This result is consistent with the short forecasting horizon: the current air-quality state contains substantial information about the following day's state. The importance values above are from the earlier model run and have not yet been regenerated with the corrected chronological split.
 
 ---
 
