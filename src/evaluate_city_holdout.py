@@ -12,21 +12,20 @@ from train_model import build_model
 
 def report_model(name, model, train, test):
     model.fit(train[FEATURES], train["Next_Day_AQI"])
-    predictions = model.predict(test[FEATURES])
-    actual = test["Next_Day_AQI"]
+    scored = test.copy()
+    scored["Prediction"] = model.predict(test[FEATURES])
+    actual = scored["Next_Day_AQI"]
 
     print(f"\n{name}")
-    print(f"MAE: {mean_absolute_error(actual, predictions):.2f} AQI points")
-    print(f"R²: {r2_score(actual, predictions):.3f}")
+    print(f"MAE: {mean_absolute_error(actual, scored['Prediction']):.2f} AQI points")
+    print(f"R²: {r2_score(actual, scored['Prediction']):.3f}")
     print("MAE by held-out city:")
-    for city, indices in test.groupby("City", sort=True).groups.items():
-        group_actual = actual.loc[indices]
-        group_predictions = predictions[list(test.index).index(indices[0]):list(test.index).index(indices[0]) + len(indices)]
-        city_mae = mean_absolute_error(group_actual, group_predictions)
-        baseline_mae = mean_absolute_error(group_actual, test.loc[indices, "AQI"])
+    for city, group in scored.groupby("City", sort=True):
+        city_mae = mean_absolute_error(group["Next_Day_AQI"], group["Prediction"])
+        baseline_mae = mean_absolute_error(group["Next_Day_AQI"], group["AQI"])
         print(
             f"{city}: model={city_mae:.2f}, "
-            f"persistence={baseline_mae:.2f}, n={len(indices)}"
+            f"persistence={baseline_mae:.2f}, n={len(group)}"
         )
 
 
