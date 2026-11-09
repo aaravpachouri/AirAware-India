@@ -173,14 +173,14 @@ The leakage-controlled training run identified current AQI as the dominant predi
 |---|---:|
 | AQI | 0.803441 |
 | PM2.5 | 0.075267 |
-| CO | 0.017570 |
-| PM10 | 0.017421 |
-| AQI_3Day_Avg | 0.014257 |
-| NO2 | 0.010475 |
-| O3 | 0.009814 |
-| SO2 | 0.009709 |
-| AQI_Change | 0.009553 |
-| Previous_Day_AQI | 0.007520 |
+| PM10 | 0.017466 |
+| CO | 0.017024 |
+| AQI_3Day_Avg | 0.014914 |
+| NO2 | 0.010235 |
+| O3 | 0.009664 |
+| AQI_Change | 0.009662 |
+| SO2 | 0.009638 |
+| Previous_Day_AQI | 0.007309 |
 
 This is consistent with the short forecasting horizon: current AQI carries substantial information about the following day's state. Feature importance is descriptive, not causal.
 
