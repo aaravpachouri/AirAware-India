@@ -146,6 +146,7 @@ GitHub Actions rebuilt the historical dataset from a checksum-verified raw sourc
 | Test MAE | 16.41 AQI points |
 | Test R² | 0.890 |
 | Persistence baseline MAE | 18.81 AQI points |
+| Three-day mean baseline MAE | 22.70 AQI points |
 
 The fresh model's MAE was approximately 12.8% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
 
