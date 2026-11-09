@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/reproducible-aqi-validation
+      - research/validation-integrity-phase-1
     paths:
       - "app.py"
       - "src/**"
@@ -82,7 +83,7 @@ jobs:
 
   publish-generated-artifacts:
     needs: evaluation-tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/reproducible-aqi-validation' && !contains(github.event.head_commit.message, 'Regenerate AQI dataset and temporal model')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/reproducible-aqi-validation' || github.ref == 'refs/heads/research/validation-integrity-phase-1') && !contains(github.event.head_commit.message, 'Regenerate AQI dataset and temporal model')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,7 +92,7 @@ jobs:
       - name: Check out isolated validation branch
         uses: actions/checkout@v4
         with:
-          ref: fix/reproducible-aqi-validation
+          ref: ${{ github.ref_name }}
           lfs: true
       - name: Download regenerated artifacts
         uses: actions/download-artifact@v4
@@ -113,4 +114,4 @@ jobs:
             exit 0
           fi
           git commit -m "Regenerate AQI dataset and temporal model"
-          git push origin HEAD:fix/reproducible-aqi-validation
+          git push origin HEAD:${GITHUB_REF_NAME}
