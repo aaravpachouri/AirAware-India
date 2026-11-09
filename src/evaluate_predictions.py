@@ -1,58 +1,44 @@
-import pandas as pd
+"""Create an actual-versus-predicted plot for the chronological test set."""
 import joblib
 import matplotlib.pyplot as plt
+import pandas as pd
 
-df = pd.read_csv("data/ml_data.csv")
-df["Date"] = pd.to_datetime(df["Date"])
-df = df.sort_values("Date")
+from evaluation_utils import FEATURES, ROOT, chronological_split, load_ml_data
 
-features = [
-    "City",
-    "PM2.5",
-    "PM10",
-    "NO2",
-    "CO",
-    "SO2",
-    "O3",
-    "AQI",
-    "Previous_Day_AQI",
-    "AQI_3Day_Avg",
-    "AQI_Change",
-    "Day",
-    "Month",
-    "DayOfWeek",
-]
 
-split_index = int(len(df) * 0.8)
-test = df.iloc[split_index:].copy()
+def main() -> None:
+    df = load_ml_data()
+    _, test, test_start = chronological_split(df)
+    model_path = ROOT / "models" / "airaware_random_forest_v3.joblib"
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Trained model not found at {model_path}. Run python src/train_model.py first."
+        )
 
-model = joblib.load("models/airaware_random_forest_v3.joblib")
+    model = joblib.load(model_path)
+    test = test.copy()
+    test["Predicted_AQI"] = model.predict(test[FEATURES])
+    sample = test.head(100)
 
-test["Predicted_AQI"] = model.predict(test[features])
+    reports_dir = ROOT / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    output_path = reports_dir / "actual_vs_predicted.png"
 
-# Take the first 100 test observations for visualization
-sample = test.head(100)
+    plt.figure(figsize=(12, 5))
+    plt.plot(sample["Next_Day_AQI"].to_numpy(), label="Actual AQI")
+    plt.plot(sample["Predicted_AQI"].to_numpy(), label="Predicted AQI")
+    plt.title(f"AirAware: Actual vs Predicted AQI (test starts {test_start.date()})")
+    plt.xlabel("Test observation")
+    plt.ylabel("AQI")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
 
-plt.figure(figsize=(12, 5))
+    mae = ((test["Next_Day_AQI"] - test["Predicted_AQI"]).abs()).mean()
+    print(f"Prediction evaluation complete. Test MAE: {mae:.2f} AQI points.")
+    print(f"Graph saved to: {output_path}")
 
-plt.plot(
-    sample["Next_Day_AQI"].values,
-    label="Actual AQI"
-)
 
-plt.plot(
-    sample["Predicted_AQI"].values,
-    label="Predicted AQI"
-)
-
-plt.title("AirAware: Actual vs Predicted AQI")
-plt.xlabel("Test Observation")
-plt.ylabel("AQI")
-plt.legend()
-plt.tight_layout()
-
-plt.savefig("reports/actual_vs_predicted.png")
-plt.close()
-
-print("Prediction evaluation complete.")
-print("Graph saved to reports/actual_vs_predicted.png")
+if __name__ == "__main__":
+    main()
