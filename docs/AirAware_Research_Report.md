@@ -4,7 +4,7 @@
 
 AirAware India is a research-oriented machine-learning system for short-term air-quality forecasting in India. The project combines historical city-level air-quality observations with a public-facing monitoring and forecasting dashboard.
 
-The core research task is next-day AQI prediction using pollutant, temporal, and recent AQI features. A Random Forest regression model achieved a test MAE of **16.20 AQI points** and an R² of **0.883** on the held-out historical test set. A persistence baseline, defined as predicting tomorrow's AQI as today's AQI, achieved an MAE of **18.39 AQI points** on the corresponding evaluation data.
+The core research task is next-day AQI prediction using pollutant, temporal, and recent AQI features. A Random Forest regression model achieved a test MAE of **16.41 AQI points** and an R² of **0.890** on the held-out historical test set. A persistence baseline, defined as predicting tomorrow's AQI as today's AQI, achieved an MAE of **18.81 AQI points** on the corresponding evaluation data.
 
 The project also includes an OpenAQ-based monitoring pipeline that discovers Indian monitoring stations, retrieves recent pollutant observations, calculates an **estimated CPCB-style AQI**, and combines the current state with the forecasting model to produce an understandable tomorrow outlook.
 
@@ -63,7 +63,7 @@ The cleaning pipeline:
 
 1. Removed observations without a usable AQI target.
 2. Restricted AQI to the 0-500 range for the research dataset.
-3. Filled missing pollutant values for the exploration stage.
+3. Retained missing pollutant values for model-time imputation fitted only on training rows.
 4. Converted dates to datetime values.
 5. Sorted observations chronologically by city and date.
 
@@ -88,7 +88,7 @@ DayOfWeek
 
 A next-day date check was also used so that the target represented the AQI for the actual following calendar day rather than simply the next available row.
 
-The resulting machine-learning dataset contains **22,981 observations**.
+The resulting machine-learning dataset contains **22,468 rows before final evaluation filtering**.
 
 ---
 
@@ -139,15 +139,15 @@ GitHub Actions rebuilt the historical dataset from a checksum-verified raw sourc
 
 | Evaluation detail | Result |
 |---|---:|
-| Training rows | 14,597 |
-| Held-out test rows | 8,368 |
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Test MAE | 16.21 AQI points |
-| Test R² | 0.898 |
-| Persistence baseline MAE | 18.94 AQI points |
+| Test MAE | 16.41 AQI points |
+| Test R² | 0.890 |
+| Persistence baseline MAE | 18.81 AQI points |
 
-The fresh model's MAE was approximately 14.4% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
+The fresh model's MAE was approximately 12.8% lower than the persistence baseline, measured on the same held-out rows. Performance varies by city, so the aggregate result should not be interpreted as uniform accuracy across India.
 
 ### Training and test protocol
 
@@ -171,8 +171,8 @@ The leakage-controlled training run identified current AQI as the dominant predi
 
 | Feature | Importance |
 |---|---:|
-| AQI | 0.806811 |
-| PM2.5 | 0.071782 |
+| AQI | 0.803441 |
+| PM2.5 | 0.075267 |
 | CO | 0.017570 |
 | PM10 | 0.017421 |
 | AQI_3Day_Avg | 0.014257 |
