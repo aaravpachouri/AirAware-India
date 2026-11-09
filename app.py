@@ -3759,6 +3759,12 @@ if page == "Latest Air":
 
 
 
+    st.caption(
+        "Research forecast only: this separate model has not yet been "
+        "validated against subsequent measurements from the selected live "
+        "station. The displayed AQI is an estimate, not an official CPCB value."
+    )
+
     st.markdown("### Latest Pollutant Measurements")
 
     st.caption(
