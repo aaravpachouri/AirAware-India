@@ -55,6 +55,20 @@ def main() -> None:
     df = pd.read_csv(INPUT_PATH)
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df["AQI"] = pd.to_numeric(df["AQI"], errors="coerce")
+    df = df.dropna(subset=["City", "Date", "AQI"]).copy()
+
+    # One city-day must represent one observation. Duplicate city/date rows
+    # make lag and rolling features ambiguous, so fail rather than silently
+    # selecting or averaging an arbitrary record.
+    duplicates = df.duplicated(subset=["City", "Date"], keep=False)
+    if duplicates.any():
+        examples = df.loc[duplicates, ["City", "Date"]].head(5)
+        raise ValueError(
+            "Duplicate city/date observations found; resolve them before "
+            "feature engineering. Examples: "
+            + examples.to_dict(orient="records").__repr__()
+        )
+
     df = df.sort_values(["City", "Date"]).reset_index(drop=True)
 
     df["Previous_Date"] = df.groupby("City")["Date"].shift(1)
@@ -67,10 +81,17 @@ def main() -> None:
     df["AQI_Change"] = df["AQI"] - df["Previous_Day_AQI"]
     df["AQI_3Day_Avg"] = (
         df.groupby("City")["AQI"]
-        .rolling(3)
+        .rolling(3, min_periods=3)
         .mean()
         .reset_index(level=0, drop=True)
     )
+    # A three-row rolling window is only a three-day average when all three
+    # observations are on consecutive calendar days. Do not bridge data gaps.
+    third_prior_date = df.groupby("City")["Date"].shift(2)
+    nonconsecutive_window = (
+        (df["Date"] - third_prior_date) != pd.Timedelta(days=2)
+    )
+    df.loc[nonconsecutive_window, "AQI_3Day_Avg"] = None
 
     df["Next_Date"] = df.groupby("City")["Date"].shift(-1)
     df["Next_Day_AQI"] = df.groupby("City")["AQI"].shift(-1)
