@@ -3767,7 +3767,7 @@ if page == "Latest Air":
             "Only sensor inventories are compared; readings from different stations are never combined."
         )
         if st.button(
-            "Find same-city alternatives",
+            "Find nearby alternatives",
             key=f"find_sensor_stations_{selected_location['id']}",
         ):
             with st.spinner("Checking station sensor inventories…"):
@@ -3890,16 +3890,33 @@ if page == "Latest Air":
                             "Insufficient verified hourly coverage to calculate an overall "
                             "time-averaged AQI. The existing dashboard reading is unchanged."
                         )
-                    st.write("Pollutant coverage")
-                    st.json({
-                        pollutant: {
-                            **metadata,
-                            "average": coverage_result["averages"].get(pollutant),
-                            "rejection": coverage_result["rejected_pollutants"].get(pollutant),
-                            "sensor_diagnostics": coverage_result.get("sensor_diagnostics", {}).get(pollutant, {}),
-                        }
-                        for pollutant, metadata in coverage_result["coverage"].items()
-                    })
+                    st.write("Verified pollutant coverage")
+                    st.dataframe(
+                        [
+                            {
+                                "Pollutant": pollutant.upper(),
+                                "Averaging window": metadata.get("averaging_period"),
+                                "Valid hours": metadata.get("valid_hours_in_24h"),
+                                "Required": metadata.get("required_hours_in_24h"),
+                                "Coverage": "Pass" if metadata.get("coverage_sufficient") else "Insufficient",
+                                "24h / 8h average": coverage_result["averages"].get(pollutant),
+                                "Reason if rejected": coverage_result["rejected_pollutants"].get(pollutant) or "",
+                            }
+                            for pollutant, metadata in coverage_result["coverage"].items()
+                        ],
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+                    with st.expander("Detailed sensor and API diagnostics"):
+                        st.json({
+                            pollutant: {
+                                **metadata,
+                                "average": coverage_result["averages"].get(pollutant),
+                                "rejection": coverage_result["rejected_pollutants"].get(pollutant),
+                                "sensor_diagnostics": coverage_result.get("sensor_diagnostics", {}).get(pollutant, {}),
+                            }
+                            for pollutant, metadata in coverage_result["coverage"].items()
+                        })
                     if coverage_result.get("source_errors"):
                         st.caption(
                             "Some sensor requests failed: "
