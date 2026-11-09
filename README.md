@@ -129,6 +129,8 @@ GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retraine
 
 The model's MAE is about 12.8% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
 
+**Unseen-city validation is a separate and harder test.** On a deterministic holdout of six cities (4,508 observations), the city-aware Random Forest MAE was 28.25 AQI points, a city-agnostic variant scored 24.64, and persistence scored 22.19. Neither Random Forest beat persistence on this split, so cross-city generalization is not established. See the [research protocol](docs/RESEARCH_PROTOCOL.md).
+
 **Why the older model score is not used:** the previous checked-in artifact scored MAE 11.39 and R² 0.938 on a later-date holdout, but its original training cutoff is undocumented. It may have seen future dates during training, so that score is not accepted as reliable out-of-sample evidence.
 
 **Preprocessing method:** pollutant missing values are retained in the prepared dataset and imputed inside the model pipeline using medians fitted only on the training rows. The raw source file is downloaded from a public mirror and verified against SHA-256 `0d84b21c3e4878bbad8df362f2ab05f61ad959538dddf5918e714077ed3c1847` before preprocessing. The source CSV itself is not committed to the repository.
