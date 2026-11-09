@@ -4504,13 +4504,13 @@ elif page == "Model Performance":
 
     with c2:
 
-        st.metric("Chronological test MAE", "16.21")
+        st.metric("Chronological test MAE", "16.41")
 
 
 
     with c3:
 
-        st.metric("Chronological test R²", "0.898")
+        st.metric("Chronological test R²", "0.890")
 
 
 
@@ -4531,15 +4531,15 @@ elif page == "Model Performance":
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
 <strong>Chronological test MAE — 16.21 AQI points</strong><br>
-The freshly trained model's average absolute error was 16.21 AQI points on 8,368 held-out observations.<br><br>
+The freshly trained model's average absolute error was 16.41 AQI points on 8,220 held-out observations.<br><br>
 
 <strong>Chronological test R² — 0.898</strong><br>
 This describes variation explained relative to a constant-mean predictor. It is not a percentage accuracy score.<br><br>
 
-<strong>Persistence baseline MAE — 18.94 AQI points</strong><br>
-Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same held-out rows. The model's MAE was about 14.4% lower.<br><br>
+<strong>Persistence baseline MAE — 18.81 AQI points</strong><br>
+Predicting that tomorrow's AQI equals today's AQI produced a higher average absolute error on the same held-out rows. The model's MAE was about 12.8% lower.<br><br>
 
-The training set contained 14,597 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Pollutant missing values are imputed using medians learned only from the training period. Performance still varies by city and the result applies to this historical dataset, not current air quality.
+The training set contained 14,232 observations. The last training feature date was 2019-05-24 and the first test feature date was 2019-05-26. Pollutant missing values are imputed using medians learned only from the training period. Performance still varies by city and the result applies to this historical dataset, not current air quality.
 </div>
 """).strip()
 
