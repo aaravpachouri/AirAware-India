@@ -117,15 +117,15 @@ GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retraine
 
 | Metric | Leakage-controlled temporal evaluation |
 |---|---:|
-| Training rows | 14,597 |
-| Held-out test rows | 8,368 |
+| Training rows | 14,232 |
+| Held-out test rows | 8,220 |
 | Last training feature date | 2019-05-24 |
 | First test feature date | 2019-05-26 |
-| Test MAE | **16.21 AQI points** |
-| Test R² | **0.898** |
-| Persistence baseline MAE | **18.94 AQI points** |
+| Test MAE | **16.41 AQI points** |
+| Test R² | **0.890** |
+| Persistence baseline MAE | **18.81 AQI points** |
 
-The model's MAE is about 14.4% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
+The model's MAE is about 12.8% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
 
 **Why the older model score is not used:** the previous checked-in artifact scored MAE 11.39 and R² 0.938 on a later-date holdout, but its original training cutoff is undocumented. It may have seen future dates during training, so that score is not accepted as reliable out-of-sample evidence.
 
@@ -164,7 +164,7 @@ To evaluate an existing compatible model artifact against the prepared dataset, 
 
 ## Feature Importance
 
-The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8068), followed by PM2.5 (0.0718). Feature importance is descriptive, not causal.
+The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8034), followed by PM2.5 (0.0753). Feature importance is descriptive, not causal.
 
 This is consistent with the short-horizon nature of the forecasting problem: today's air-quality state contains substantial information about the following day's conditions.
 
