@@ -4519,13 +4519,21 @@ elif page == "Model Performance":
 
     with c2:
 
-        st.metric("Test MAE", "16.20")
+        st.metric("Previously reported MAE", "16.20")
 
 
 
     with c3:
 
-        st.metric("Test R²", "0.883")
+        st.metric("Previously reported R²", "0.883")
+
+
+
+    st.warning(
+        "These are historical metrics from an earlier evaluation run. "
+        "They have not yet been reproduced using the corrected date-based "
+        "evaluation split, so they are not presented as currently validated results."
+    )
 
 
 
@@ -4535,16 +4543,13 @@ elif page == "Model Performance":
 
     model_metrics_html = textwrap.dedent("""
 <div class="aa-note">
-<strong>MAE — 16.20 AQI points</strong><br>
-On average, the model's prediction differs from the actual next-day AQI
-by about 16 AQI points on the held-out test set.<br><br>
+<strong>Previously reported MAE — 16.20 AQI points</strong><br>
+This was the average absolute error reported by an earlier evaluation run.<br><br>
 
-<strong>R² — 0.883</strong><br>
-The model explains a large proportion of the variation in next-day AQI
-within this test set.<br><br>
+<strong>Previously reported R² — 0.883</strong><br>
+This was the R² reported by an earlier evaluation run. R² is not a percentage accuracy score.<br><br>
 
-These values describe performance on the historical test data.
-They should <strong>not</strong> be interpreted as "88.3% accuracy."
+The evaluation code now uses a shared chronological split designed to keep training target windows separate from the test period. The metrics above must be recalculated on that split before they can be reported as validated results.
 </div>
 """).strip()
 
