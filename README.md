@@ -200,8 +200,8 @@ The historical model was developed using Indian city-level air-quality observati
 
 The data-processing pipeline includes:
 
-1. Cleaning missing and invalid observations
-2. Removing unusable AQI records
+1. Removing invalid dates and unusable AQI records
+2. Retaining missing pollutant observations for train-only imputation
 3. Normalizing pollutant columns
 4. Creating chronological city-level features
 5. Creating previous-day AQI
@@ -218,6 +218,7 @@ AirAware-India/
 ├── app.py
 ├── README.md
 ├── requirements.txt
+├── requirements-dev.txt
 ├── .env.example
 ├── .gitignore
 │
@@ -239,11 +240,13 @@ AirAware-India/
 │   └── pm25_vs_aqi.png
 │
 └── src/
+    ├── download_source_data.py
     ├── clean_data.py
     ├── eda.py
     ├── prepare_ml_data.py
     ├── train_model.py
     ├── train_live_model.py
+    ├── evaluate_saved_model.py
     ├── evaluate_baseline.py
     ├── evaluate_predictions.py
     ├── feature_importance.py
