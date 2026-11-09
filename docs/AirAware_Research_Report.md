@@ -135,21 +135,33 @@ This prevents future observations from being used to train the model before earl
 
 ## 6. Results
 
-| Evaluation | Result |
+The repository previously reported the following historical results:
+
+| Evaluation | Previously reported result |
 |---|---:|
-| Test MAE | **16.20 AQI points** |
-| Test R² | **0.883** |
-| Persistence baseline MAE | **18.39 AQI points** |
+| Test MAE | 16.20 AQI points |
+| Test R² | 0.883 |
+| Persistence baseline MAE | 18.39 AQI points |
+
+These values were produced by an earlier evaluation run. The evaluation pipeline has since been updated to split by date, keep training and test windows chronologically separated, and use a shared feature definition across model training and evaluation. **The earlier metrics have not yet been reproduced on the corrected split. They are retained here for provenance and must not be presented as the current validated performance.**
+
+### Reproducing results
+
+From the repository root, ensure `data/ml_data.csv` is present and run:
+
+```bash
+python src/train_model.py
+python src/evaluate_baseline.py
+python src/evaluate_predictions.py
+python src/city_evaluation.py
+python src/feature_importance.py
+```
+
+The commands print fresh metrics for the local dataset and regenerate the prediction plot. If the dataset is not available, first obtain the original historical source data and run the cleaning and feature-preparation pipeline. The updated evaluation utility tests run separately in GitHub Actions.
 
 ### Interpretation
 
-An MAE of 16.20 means that, on average, the model's prediction differs from the observed next-day AQI by about 16 AQI points on the held-out test set.
-
-An R² of 0.883 indicates that the model explains a large share of the variation in the held-out target values.
-
-**R² must not be described as 88.3% prediction accuracy.**
-
-The persistence baseline is important because short-term AQI forecasting can be difficult to improve substantially over simply carrying today's AQI forward. The model therefore needs to be judged against that baseline rather than against accuracy alone.
+MAE expresses the average absolute forecast error in AQI points. R² describes variation explained relative to a constant-mean predictor; it is not a percentage accuracy score. Model performance should also be compared with the persistence baseline on the exact same held-out test rows.
 
 ---
 
