@@ -3872,24 +3872,61 @@ if page == "Latest Air":
                     st.error("Could not validate time-averaged coverage.")
                     st.caption(str(coverage_error)[:300])
                 else:
-                    if coverage_result["eligible"]:
-                        avg_aqi = estimate_cpcb_style_aqi(
-                            coverage_result["averages"]
-                        )
+                    averaged_result = estimate_cpcb_style_aqi(
+                        coverage_result.get("averages", {})
+                    )
+                    subindices = averaged_result.get("subindices", {}) or {}
+                    dominant_pollutant = (
+                        max(subindices, key=subindices.get) if subindices else None
+                    )
+
+                    if coverage_result.get("eligible") and averaged_result.get("aqi") is not None:
                         st.success(
-                            "Coverage gate passed for a CPCB-style estimate. "
-                            "This is still an OpenAQ-derived estimate, not an official CPCB reading."
+                            "Hourly coverage passed for a multi-pollutant, CPCB-style estimate. "
+                            "This is an OpenAQ-derived research estimate, not an official CPCB reading."
                         )
                         st.metric(
-                            "Time-averaged estimated AQI",
-                            int(round(avg_aqi["aqi"]))
-                            if avg_aqi.get("aqi") is not None else "Unavailable",
+                            "Rolling time-averaged AQI estimate",
+                            int(round(averaged_result["aqi"])),
+                        )
+                        if dominant_pollutant:
+                            st.caption(
+                                f"Highest contributing pollutant: {dominant_pollutant.upper()} "
+                                f"(sub-index {subindices[dominant_pollutant]:.1f})."
+                            )
+                        st.info(
+                            "This research estimate uses validated rolling 24-hour averages "
+                            "(and the latest complete 8-hour averages for CO/O₃). The main "
+                            "index above uses the station's latest available snapshot, so "
+                            "the two values have different time windows and are not directly comparable."
                         )
                     else:
                         st.warning(
-                            "Insufficient verified hourly coverage to calculate an overall "
-                            "time-averaged AQI. The existing dashboard reading is unchanged."
+                            "There is not enough verified multi-pollutant hourly coverage "
+                            "to report an overall time-averaged AQI. The main dashboard index "
+                            "is unchanged."
                         )
+                        if subindices:
+                            st.write("Available pollutant sub-indices — not an overall AQI")
+                            st.dataframe(
+                                [
+                                    {
+                                        "Pollutant": pollutant.upper(),
+                                        "Averaging window": coverage_result["coverage"].get(pollutant, {}).get("averaging_period"),
+                                        "Sub-index": value,
+                                    }
+                                    for pollutant, value in sorted(
+                                        subindices.items(), key=lambda item: item[1], reverse=True
+                                    )
+                                ],
+                                hide_index=True,
+                                use_container_width=True,
+                            )
+                            st.caption(
+                                "A single pollutant sub-index (for example, PM2.5) must not "
+                                "be presented as the station's overall AQI."
+                            )
+
                     st.write("Verified pollutant coverage")
                     st.dataframe(
                         [
@@ -3899,8 +3936,12 @@ if page == "Latest Air":
                                 "Valid hours": metadata.get("valid_hours_in_24h"),
                                 "Required": metadata.get("required_hours_in_24h"),
                                 "Coverage": "Pass" if metadata.get("coverage_sufficient") else "Insufficient",
-                                "24h / 8h average": coverage_result["averages"].get(pollutant),
-                                "Reason if rejected": coverage_result["rejected_pollutants"].get(pollutant) or "",
+                                "Average": coverage_result.get("averages", {}).get(pollutant),
+                                "AQI sub-index": subindices.get(pollutant),
+                                "Contribution": (
+                                    "Highest" if pollutant == dominant_pollutant else ""
+                                ),
+                                "Reason if rejected": coverage_result.get("rejected_pollutants", {}).get(pollutant) or "",
                             }
                             for pollutant, metadata in coverage_result["coverage"].items()
                         ],
