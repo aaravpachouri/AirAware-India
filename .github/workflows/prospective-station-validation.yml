@@ -47,7 +47,27 @@ jobs:
         run: |
           set -euo pipefail
           python src/evaluate_prospective_station_validation.py | tee prospective-validation-summary.json
-          python -c 'import json, os; from pathlib import Path; s=json.loads(Path("prospective-validation-summary.json").read_text(encoding="utf-8")); lines=["## Prospective station validation", "", f"- Evaluated forecasts: **{s.get(chr(101)+chr(118)+chr(97)+chr(108)+chr(117)+chr(97)+chr(116)+chr(101)+chr(100)+chr(95)+chr(102)+chr(111)+chr(114)+chr(101)+chr(99)+chr(97)+chr(115)+chr(116)+chr(115), 0)}**", f"- Stations / cities: **{s.get(chr(115)+chr(116)+chr(97)+chr(116)+chr(105)+chr(111)+chr(110)+chr(115), 0)} / {s.get(chr(99)+chr(105)+chr(116)+chr(105)+chr(101)+chr(115), 0)}**", f"- Model MAE: **{s.get(chr(109)+chr(111)+chr(100)+chr(101)+chr(108)+chr(95)+chr(109)+chr(97)+chr(101))}**", f"- Persistence MAE: **{s.get(chr(112)+chr(101)+chr(114)+chr(115)+chr(105)+chr(115)+chr(116)+chr(101)+chr(110)+chr(99)+chr(101)+chr(95)+chr(109)+chr(97)+chr(101))}**", f"- MAE improvement: **{s.get(chr(109)+chr(97)+chr(101)+chr(95)+chr(105)+chr(109)+chr(112)+chr(114)+chr(111)+chr(118)+chr(101)+chr(109)+chr(101)+chr(110)+chr(116))}**", "", s.get("interpretation", "No interpretation available."), "", "OpenAQ-derived station snapshots; not official CPCB 24-hour AQI."]; open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8").write("\\n".join(lines)+"\\n")'
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          summary = json.loads(Path('prospective-validation-summary.json').read_text(encoding='utf-8'))
+          lines = [
+              '## Prospective station validation',
+              '',
+              f"- Evaluated forecasts: **{summary.get('evaluated_forecasts', 0)}**",
+              f"- Stations / cities: **{summary.get('stations', 0)} / {summary.get('cities', 0)}**",
+              f"- Model MAE: **{summary.get('model_mae')}**",
+              f"- Persistence MAE: **{summary.get('persistence_mae')}**",
+              f"- MAE improvement (positive favours model): **{summary.get('mae_improvement')}**",
+              '',
+              summary.get('interpretation', 'No interpretation available.'),
+              '',
+              'OpenAQ-derived station snapshots; not official CPCB 24-hour AQI.',
+          ]
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as handle:
+              handle.write('\n'.join(lines) + '\n')
+          PY
       - name: Commit public research ledger
         run: |
           set -euo pipefail
