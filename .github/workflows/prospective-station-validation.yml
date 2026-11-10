@@ -1,0 +1,58 @@
+name: Prospective station validation
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prospective-station-validation
+  cancel-in-progress: false
+
+jobs:
+  collect-and-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out public research ledger
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Require OpenAQ API key
+        env:
+          OPENAQ_API_KEY: \${{ secrets.OPENAQ_API_KEY }}
+        run: |
+          if [ -z "$OPENAQ_API_KEY" ]; then
+            echo "::error::Add OPENAQ_API_KEY under Repository Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+      - name: Collect forecasts and pair matured station observations
+        env:
+          OPENAQ_API_KEY: \${{ secrets.OPENAQ_API_KEY }}
+          AIR_AWARE_MAX_STATIONS: "25"
+        run: python src/prospective_station_validation.py
+      - name: Summarise prospective validation
+        run: python src/evaluate_prospective_station_validation.py
+      - name: Commit public research ledger
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/prospective_station_validation.jsonl
+          if git diff --cached --quiet; then
+            echo "No new forecast or evaluation records."
+            exit 0
+          fi
+          git commit -m "Record prospective station forecast validation"
+          git push origin HEAD:main
