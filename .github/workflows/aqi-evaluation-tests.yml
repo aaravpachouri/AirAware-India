@@ -1,6 +1,7 @@
 name: AQI evaluation tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
