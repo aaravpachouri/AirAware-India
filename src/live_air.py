@@ -903,38 +903,59 @@ def find_sensor_compatible_locations(
     locations: list[dict],
     reference_location: dict,
     *,
-    max_candidates: int = 20,
+    max_candidates: int = 40,
+    radius_km: float = 50.0,
 ) -> list[dict]:
-    """Find same-city stations with richer pollutant sensor inventories.
+    """Find nearby stations with richer pollutant sensor inventories.
 
-    This is an explicit, on-demand discovery operation. It fetches full
-    metadata only for a bounded number of candidate stations and never mixes
-    measurements across locations.
+    Uses coordinates first so discovery works even when OpenAQ city/locality
+    metadata is absent or inconsistent. Falls back to exact city/state only
+    when coordinates are unavailable. Inventory is a screening signal, not
+    proof of hourly coverage or AQI eligibility.
     """
-    reference_city = str(
-        reference_location.get("city")
-        or reference_location.get("locality")
-        or ""
-    ).strip().casefold()
-    reference_state = str(reference_location.get("state") or "").strip().casefold()
-    if not reference_city:
-        return []
+    def coordinates(item: dict) -> tuple[float, float] | None:
+        try:
+            lat = float(item.get("latitude", item.get("coordinates", {}).get("latitude")))
+            lon = float(item.get("longitude", item.get("coordinates", {}).get("longitude")))
+        except (TypeError, ValueError, AttributeError):
+            return None
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return None
+        return lat, lon
 
+    origin = coordinates(reference_location)
+    reference_city = str(reference_location.get("city") or reference_location.get("locality") or "").strip().casefold()
+    reference_state = str(reference_location.get("state") or "").strip().casefold()
     candidates = []
     for item in locations:
         if item.get("id") == reference_location.get("id"):
             continue
-        city = str(item.get("city") or item.get("locality") or "").strip().casefold()
-        state = str(item.get("state") or "").strip().casefold()
-        if city != reference_city:
+        point = coordinates(item)
+        distance = None
+        if origin and point:
+            from math import asin, cos, radians, sin, sqrt
+            lat1, lon1 = map(radians, origin)
+            lat2, lon2 = map(radians, point)
+            dlat, dlon = lat2 - lat1, lon2 - lon1
+            a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+            distance = 6371.0 * 2 * asin(sqrt(min(1.0, a)))
+            if distance > max(1.0, min(float(radius_km), 100.0)):
+                continue
+        elif reference_city:
+            city = str(item.get("city") or item.get("locality") or "").strip().casefold()
+            state = str(item.get("state") or "").strip().casefold()
+            if city != reference_city or (reference_state and state and state != reference_state):
+                continue
+        else:
             continue
-        if reference_state and state and state != reference_state:
-            continue
-        candidates.append(item)
-
-    candidates.sort(key=lambda item: item.get("last_datetime") or "", reverse=True)
+        candidates.append(({**item, "distance_km": round(distance, 1) if distance is not None else None}))
+    candidates.sort(key=lambda candidate: (
+        candidate.get("distance_km") is None,
+        candidate.get("distance_km") if candidate.get("distance_km") is not None else float("inf"),
+        candidate.get("last_datetime") or "",
+    ))
     results = []
-    for candidate in candidates[:max(1, min(int(max_candidates), 30))]:
+    for candidate in candidates[:max(1, min(int(max_candidates), 40))]:
         try:
             detail = get_location(int(candidate["id"]))
             mapping = _sensor_mapping(detail)
@@ -958,18 +979,16 @@ def find_sensor_compatible_locations(
                 "inventory_eligible": False,
                 "metadata_error": str(exc)[:200],
             })
-
     results.sort(
         key=lambda item: (
-            item["inventory_eligible"],
-            len(item["pollutants"]),
+            not item["inventory_eligible"],
+            -len(item["pollutants"]),
+            item.get("distance_km") is None,
+            item.get("distance_km") if item.get("distance_km") is not None else float("inf"),
             item.get("last_datetime") or "",
-        ),
-        reverse=True,
+        )
     )
     return results
-
-
 
 
 # ============================================================
