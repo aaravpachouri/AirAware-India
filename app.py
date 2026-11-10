@@ -3761,7 +3761,14 @@ if page == "Latest Air":
     )
 
 
-    with st.expander("Find stations with better pollutant coverage", expanded=False):
+    st.markdown("### Station intelligence & research validation")
+    st.caption(
+        "Optional tools below the live AQI: discover nearby monitoring stations and "
+        "inspect the quality, coverage and averaging behind a research estimate. "
+        "Neither tool silently changes the main index."
+    )
+
+    with st.expander("1 · Nearby station discovery", expanded=False):
         st.caption(
             "Searches up to 40 nearby stations within 50 km, even when city metadata is missing. "
             "Only sensor inventories are compared; readings from different stations are never combined."
@@ -3853,7 +3860,7 @@ if page == "Latest Air":
             "Inventory screening only: a promising sensor list does not guarantee recent hourly data. "
             "Run the research coverage check after selecting a station. The main AQI above is unchanged."
         )
-    with st.expander("Research check: time-averaged AQI data coverage", expanded=False):
+    with st.expander("2 · Research validation: hourly coverage & AQI methodology", expanded=False):
         st.caption(
             "Optional validation fetches the selected station's hourly OpenAQ data. "
             "It does not change the existing live reading or forecast."
