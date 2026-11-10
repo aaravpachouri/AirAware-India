@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.dummy import DummyRegressor
 
 from rolling_origin_validation import evaluate_rolling_origin, rolling_origin_splits
 
