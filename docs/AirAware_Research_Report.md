@@ -166,6 +166,21 @@ A deterministic group split held out six complete cities (4,508 observations) fr
 
 The city-aware model had R² 0.545; the city-agnostic variant had R² 0.703. The three-day mean baseline MAE was 24.64. Removing the city feature improved the aggregate Random Forest score, but neither model beat persistence on this held-out-city split. Ahmedabad was especially difficult for both models. This fixed split does not prove performance for every unseen city, but it demonstrates that the temporal holdout score must not be generalized to cities outside the training set.
 
+### Repeated city-group validation with paired uncertainty intervals
+
+A five-fold GroupKFold experiment evaluated every candidate on held-out cities. Each of the 26 cities appears in exactly one test fold; all predictions for a city are combined before its MAE is calculated. The reported macro-city MAE gives each city equal weight, rather than allowing the largest cities to dominate. For each model, the paired improvement is defined as persistence MAE minus model MAE, so positive values favour the model. A 95% percentile bootstrap interval was calculated by resampling the 26 city-level paired differences (10,000 replicates; fixed random seed).
+
+| Model | Macro-city MAE | Median city MAE | Mean improvement vs persistence | 95% CI for improvement |
+|---|---:|---:|---:|---:|
+| Random Forest (city-aware) | 20.594 | 18.135 | +1.224 | [-2.624, 3.878] |
+| Random Forest (city-agnostic) | 20.133 | 18.338 | +1.685 | [-0.766, 3.646] |
+| Ridge (city-aware) | 22.718 | 20.351 | -0.901 | [-2.744, 0.527] |
+| Ridge (city-agnostic) | 21.736 | 19.901 | +0.082 | [-1.267, 1.182] |
+| Persistence | 21.818 | 21.568 | — | — |
+| Three-day mean | 25.523 | 25.896 | — | — |
+
+**Interpretation:** the city-agnostic Random Forest has the lowest macro-city MAE among the tested ML candidates, but every model's 95% interval for paired improvement includes zero. This experiment therefore does not establish a reliable improvement over persistence across unseen cities. The small positive point estimates are exploratory, not evidence of a statistically clear advantage. This result is stricter than selecting a model from one fixed six-city holdout and should remain visible alongside the chronological result. The 26-city folds are a group-held-out evaluation on this historical dataset, not prospective validation of current stations.
+
 ### Live AQI aggregation guard
 
 The Latest Air page includes an optional coverage check based on OpenAQ's hourly sensor averages. It reports time-averaged pollutant values only after checking distinct hourly coverage and the pollutant-specific averaging window. PM2.5, PM10, NO2, and SO2 use 24-hour means; CO and O3 use a complete 8-hour rolling mean. The minimum data gate requires 16 distinct valid hourly observations in the recent 24-hour window, and an overall estimate requires at least three eligible pollutants including PM2.5 or PM10. This optional check does not replace the default live snapshot or forecast, and its output is an OpenAQ-derived research estimate—not an official CPCB value. The live station forecast still needs prospective station-aligned evaluation.
