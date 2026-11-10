@@ -57,7 +57,7 @@ def test_rolling_origin_rejects_too_few_dates():
 def test_evaluator_reports_baselines_and_candidate_metrics():
     frame = sample_frame()
     factories = {
-        "constant-test-model": lambda: __import__("sklearn.dummy").dummy.DummyRegressor(strategy="mean")
+        "constant-test-model": lambda: DummyRegressor(strategy="mean")
     }
     fold_metrics, city_metrics, summary = evaluate_rolling_origin(
         frame, n_test_blocks=4, model_factories=factories
