@@ -203,6 +203,20 @@ python src/feature_importance.py
 
 To evaluate an existing compatible model artifact against the prepared dataset, run `python src/evaluate_saved_model.py` before retraining. The downloader verifies the source CSV checksum and fails closed if the file differs. The training pipeline learns pollutant imputation values only from training-period rows; the held-out test period is not used to fit the imputer.
 
+## Expanding-window rolling-origin evaluation
+
+A five-fold expanding-window evaluation was added to test whether temporal performance remains stable across successive future periods. It produced 16,577 out-of-fold rows, with training-only preprocessing and a one-day target gap at each fold boundary.
+
+| Model | Pooled MAE | Pooled RMSE |
+|---|---:|---:|
+| Persistence | 22.1571 | 35.8745 |
+| Three-day mean | 26.3910 | 40.9693 |
+| Random Forest (city-aware) | **19.3747** | **29.9239** |
+| Random Forest (city-agnostic) | 19.5583 | 30.1022 |
+| Ridge (city-agnostic) | 21.1455 | 32.0839 |
+
+The city-aware Random Forest reduced pooled MAE by 12.6% versus persistence on these rolling-origin test rows. It did not beat persistence in every fold. This is temporal evaluation for cities represented in the historical dataset—not unseen-city generalisation, station-level prospective validation, or official CPCB AQI accuracy. The fixed unseen-city holdout still shows that the tested models do not beat persistence. See the [research report](docs/AirAware_Research_Report.md) and [research protocol](docs/RESEARCH_PROTOCOL.md) for full details.
+
 ## Feature Importance
 
 The leakage-controlled training run identified current AQI as the dominant predictor (importance 0.8034), followed by PM2.5 (0.0753). Feature importance is descriptive, not causal.
@@ -433,7 +447,7 @@ Current limitations include:
 
 Potential extensions include:
 
-- More rigorous temporal and city-level validation
+- Longer prospective same-station validation with a pre-defined sample-size target
 - Additional meteorological features
 - Stronger baseline comparisons
 - Probabilistic forecasting
@@ -468,7 +482,7 @@ The project is deployed as an interactive Streamlit application and maintained a
 
 ## License
 
-Add the project's final license here before publication.
+No repository license is currently declared. Public visibility does not itself grant permission to reuse or redistribute the source; add a license only after choosing the intended terms.
 
 ---
 
