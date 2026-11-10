@@ -949,13 +949,13 @@ def find_sensor_compatible_locations(
         else:
             continue
         candidates.append(({**item, "distance_km": round(distance, 1) if distance is not None else None}))
-    candidates.sort(key=lambda pair: (
-        pair[0].get("distance_km") is None,
-        pair[0].get("distance_km") if pair[0].get("distance_km") is not None else float("inf"),
-        pair[0].get("last_datetime") or "",
+    candidates.sort(key=lambda candidate: (
+        candidate.get("distance_km") is None,
+        candidate.get("distance_km") if candidate.get("distance_km") is not None else float("inf"),
+        candidate.get("last_datetime") or "",
     ))
     results = []
-    for candidate in [item for item, _ in candidates[:max(1, min(int(max_candidates), 40))]]:
+    for candidate in candidates[:max(1, min(int(max_candidates), 40))]:
         try:
             detail = get_location(int(candidate["id"]))
             mapping = _sensor_mapping(detail)
@@ -979,12 +979,15 @@ def find_sensor_compatible_locations(
                 "inventory_eligible": False,
                 "metadata_error": str(exc)[:200],
             })
-    results.sort(key=lambda item: (
-        item["inventory_eligible"],
-        len(item["pollutants"]),
-        -(item.get("distance_km") or 0),
-        item.get("last_datetime") or "",
-    ), reverse=True)
+    results.sort(
+        key=lambda item: (
+            not item["inventory_eligible"],
+            -len(item["pollutants"]),
+            item.get("distance_km") is None,
+            item.get("distance_km") if item.get("distance_km") is not None else float("inf"),
+            item.get("last_datetime") or "",
+        )
+    )
     return results
 
 

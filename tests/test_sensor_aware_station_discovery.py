@@ -70,3 +70,36 @@ def test_station_discovery_respects_radius(monkeypatch):
     ]
     found = live_air.find_sensor_compatible_locations(locations, locations[0], radius_km=20)
     assert [item["id"] for item in found] == [2]
+
+
+
+def test_station_discovery_prefers_nearest_when_inventory_is_equal(monkeypatch):
+    monkeypatch.setattr(live_air, "get_location", lambda station_id: {"sensors": [
+        {"id": station_id * 10 + 1, "parameter": {"name": "pm2.5", "units": "µg/m³"}},
+    ]})
+    locations = [
+        {"id": 1, "latitude": 19.0, "longitude": 72.0},
+        {"id": 2, "latitude": 19.2, "longitude": 72.0, "last_datetime": "2026-11-10T01:00:00Z"},
+        {"id": 3, "latitude": 19.05, "longitude": 72.0, "last_datetime": "2026-11-09T01:00:00Z"},
+    ]
+    found = live_air.find_sensor_compatible_locations(locations, locations[0], radius_km=30)
+    assert [item["id"] for item in found] == [3, 2]
+
+
+def test_station_discovery_keeps_sensor_inventory_ahead_of_distance(monkeypatch):
+    details = {
+        2: {"sensors": [{"id": 21, "parameter": {"name": "pm2.5", "units": "µg/m³"}}]},
+        3: {"sensors": [
+            {"id": 31, "parameter": {"name": "pm2.5", "units": "µg/m³"}},
+            {"id": 32, "parameter": {"name": "no2", "units": "ppb"}},
+            {"id": 33, "parameter": {"name": "so2", "units": "ppb"}},
+        ]},
+    }
+    monkeypatch.setattr(live_air, "get_location", lambda station_id: details[station_id])
+    locations = [
+        {"id": 1, "latitude": 19.0, "longitude": 72.0},
+        {"id": 2, "latitude": 19.01, "longitude": 72.0},
+        {"id": 3, "latitude": 19.2, "longitude": 72.0},
+    ]
+    found = live_air.find_sensor_compatible_locations(locations, locations[0], radius_km=30)
+    assert [item["id"] for item in found] == [3, 2]
