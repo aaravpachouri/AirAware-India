@@ -92,7 +92,7 @@ OpenAQ-derived values and this validation panel are **not official CPCB data**. 
 
 ### Model Performance
 
-![AirAware Model Performance](docs/screenshots/model-performance.png)
+![AirAware Model Performance](docs/screenshots/Model-Performance.png)
 
 ## Machine Learning
 
@@ -139,6 +139,8 @@ GitHub Actions rebuilt the dataset from a checksum-verified raw CSV and retraine
 | Three-day mean baseline MAE | **22.70 AQI points** |
 
 The model's MAE is about 12.8% lower than the persistence baseline on the same held-out rows. Performance varies across cities; the result is specific to this historical dataset and is not a claim about current air quality.
+
+**Repeated city-group validation adds an uncertainty check.** Across five GroupKFold folds covering all 26 cities, the city-agnostic Random Forest had macro-city MAE 20.133 versus 21.818 for persistence. However, its paired 95% city-bootstrap interval for improvement was **-0.766 to +3.646 AQI points**; the interval includes zero. The city-aware Random Forest interval also includes zero (-2.624 to +3.878). These results do not establish a reliable improvement over persistence on unseen cities. Full fold-level results and methodology are in the [research report](docs/AirAware_Research_Report.md).
 
 **Unseen-city validation is a separate and harder test.** On a deterministic holdout of six cities (4,508 observations), the city-aware Random Forest MAE was 28.25 AQI points, a city-agnostic variant scored 24.64, and persistence scored 22.19. Neither Random Forest beat persistence on this split, so cross-city generalization is not established. See the [research protocol](docs/RESEARCH_PROTOCOL.md).
 
