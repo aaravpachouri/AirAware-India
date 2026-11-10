@@ -46,3 +46,12 @@ Run the following command:
     python src/evaluate_prospective_station_validation.py
 
 The script reports zero evaluated forecasts until actual same-station pairs exist. It never substitutes historical validation metrics for prospective results.
+
+
+## Statistical reporting (prospective validation)
+
+The summary script reports the model and persistence MAE/RMSE on exactly the same evaluated forecast-observation pairs, signed mean bias, median and 90th-percentile absolute error, paired model wins/losses/ties, actual forecast-horizon range, and per-station/per-city sample counts and errors.
+
+When at least five distinct stations have evaluated records, it also calculates an exploratory paired percentile interval for MAE improvement using 2,000 bootstrap replicates that resample whole station clusters. This preserves repeated observations from a station within each resampled cluster. The interval is not a substitute for a pre-registered sample-size target or an independent geographic holdout; it must be reported alongside the number of stations, cities, and paired forecasts. With fewer than five stations, the interval is omitted.
+
+A positive MAE improvement means persistence MAE minus model MAE is positive and therefore favours the model. The interval containing zero means the available prospective sample does not establish a reliable improvement. Do not convert these descriptive station-snapshot metrics into official CPCB AQI accuracy claims.
