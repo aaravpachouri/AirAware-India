@@ -31,7 +31,7 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
       - name: Require OpenAQ API key
         env:
-          OPENAQ_API_KEY: \${{ secrets.OPENAQ_API_KEY }}
+          OPENAQ_API_KEY: ${"$"}{{ secrets.OPENAQ_API_KEY }}
         run: |
           if [ -z "$OPENAQ_API_KEY" ]; then
             echo "::error::Add OPENAQ_API_KEY under Repository Settings > Secrets and variables > Actions."
@@ -39,7 +39,7 @@ jobs:
           fi
       - name: Collect forecasts and pair matured station observations
         env:
-          OPENAQ_API_KEY: \${{ secrets.OPENAQ_API_KEY }}
+          OPENAQ_API_KEY: ${"$"}{{ secrets.OPENAQ_API_KEY }}
           AIR_AWARE_MAX_STATIONS: "25"
         run: python src/prospective_station_validation.py
       - name: Summarise prospective validation
