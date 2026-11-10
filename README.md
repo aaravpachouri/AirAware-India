@@ -80,6 +80,12 @@ The Latest Air page includes an optional **Research check: time-averaged AQI dat
 
 OpenAQ-derived values and this validation panel are **not official CPCB data**. They are a research estimate based on provider-supplied sensor measurements and supported unit conversions. See [OpenAQ measurement aggregation documentation](https://docs.openaq.org/resources/measurements) and the [CPCB AQI calculation guidance](https://airquality.cpcb.gov.in/ccr_docs/How_AQI_Calculated.pdf). Forecast accuracy at live stations remains unverified until predictions are recorded and compared with later observations from those same stations.
 
+## Prospective station validation
+
+The repository now includes a scheduled, public evidence collector for the live forecast. It records 24-hour predictions and later pairs them with fresh OpenAQ-derived observations from the exact same station ID. Collection requires an OpenAQ API key configured as a GitHub Actions secret; see the [prospective validation protocol](docs/PROSPECTIVE_VALIDATION.md).
+
+The ledger starts empty. A forecast is not an evaluated result until a later eligible same-station observation is collected. The target is an experimental station snapshot, not official CPCB AQI or a regulatory 24-hour average. Historical city-day metrics must not be presented as prospective station performance.
+
 ## Dashboard
 
 ### Latest Air
