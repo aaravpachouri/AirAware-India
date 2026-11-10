@@ -6,7 +6,7 @@ Historical evaluation uses city-day records and cannot establish how the live da
 
 ## Collection
 
-GitHub Actions runs daily at 01:17 UTC and can also be started manually. It discovers up to 25 recently reporting Indian stations and records forecasts only when:
+GitHub Actions runs twice daily at 01:17 and 13:17 UTC and can also be started manually. The twice-daily cadence is intentional: the pairing window is 18–30 hours after forecast issue time, so a single daily run can miss forecasts issued manually or at a different time of day. Two fixed runs per day make it much more likely that a later collection lands inside the matching window. The collector deduplicates forecasts by station and UTC issue date. It discovers up to 25 recently reporting Indian stations and records forecasts only when:
 - The station's latest reported measurement is no more than six hours old.
 - At least three pollutant sub-indices are available, including PM2.5 or PM10.
 - The live model artifact exists and the feature builder accepts the inputs.
@@ -20,7 +20,7 @@ The ledger records public station metadata, timestamps, pollutant coverage names
 1. Open repository Settings → Secrets and variables → Actions.
 2. Add a repository secret named OPENAQ_API_KEY containing the OpenAQ v3 API key.
 3. Open Actions → Prospective station validation and run it once with Run workflow.
-4. Check the run log for discovered stations, eligible snapshots, created forecasts and matured pairings.
+4. Check the run summary for evaluated forecast count, station/city coverage, model MAE, persistence MAE and paired improvement. The workflow also stores a per-run JSON summary artifact for 90 days.
 
 The secret must never be committed or pasted into chat. Collection fails closed if it is absent.
 
@@ -35,7 +35,7 @@ Records are stored as JSON Lines in data/prospective_station_validation.jsonl. P
 - OpenAQ latest returns the latest available value per sensor; pollutant timestamps may differ. The ledger stores the station's latest overall timestamp and available sub-index names, so this is not equivalent to a fully synchronised multi-pollutant sample.
 - A station is eligible only when station-level age is at most six hours and at least three sub-indices including particulate matter are present. These safeguards reduce, but do not eliminate, temporal mismatch.
 - The first collection creates pending forecasts. Evaluated metrics remain empty until later runs retrieve eligible observations 18–30 hours after issue time.
-- A failed or missed daily run can leave a forecast unmatched. Do not widen the matching window after seeing results.
+- A failed or missed collection can leave a forecast unmatched. The twice-daily cadence reduces timing gaps, but a station can still be unmatched if its data is stale, unavailable, or outside the fixed 18–30 hour window. Do not widen the matching window after seeing results.
 - Results are descriptive. Compare model MAE with persistence MAE on the same evaluated records and report sample size, station/city coverage and time period. Do not claim broad generalisation from a small or geographically biased sample.
 - OpenAQ attribution and applicable data terms must be respected. The public ledger contains station metadata and derived research values; no API credential is stored.
 

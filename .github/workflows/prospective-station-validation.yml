@@ -2,7 +2,7 @@ name: Prospective station validation
 
 on:
   schedule:
-    - cron: "17 1 * * *"
+    - cron: "17 1,13 * * *"
   workflow_dispatch:
 
 permissions:
@@ -44,7 +44,30 @@ jobs:
           AIR_AWARE_MAX_STATIONS: "25"
         run: python src/prospective_station_validation.py
       - name: Summarise prospective validation
-        run: python src/evaluate_prospective_station_validation.py
+        run: |
+          set -euo pipefail
+          python src/evaluate_prospective_station_validation.py | tee prospective-validation-summary.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          summary = json.loads(Path('prospective-validation-summary.json').read_text(encoding='utf-8'))
+          lines = [
+              '## Prospective station validation',
+              '',
+              f"- Evaluated forecasts: **{summary.get('evaluated_forecasts', 0)}**",
+              f"- Stations / cities: **{summary.get('stations', 0)} / {summary.get('cities', 0)}**",
+              f"- Model MAE: **{summary.get('model_mae')}**",
+              f"- Persistence MAE: **{summary.get('persistence_mae')}**",
+              f"- MAE improvement (positive favours model): **{summary.get('mae_improvement')}**",
+              '',
+              summary.get('interpretation', 'No interpretation available.'),
+              '',
+              'OpenAQ-derived station snapshots; not official CPCB 24-hour AQI.',
+          ]
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as handle:
+              handle.write('\n'.join(lines) + '\n')
+          PY
       - name: Commit public research ledger
         run: |
           set -euo pipefail
@@ -57,3 +80,11 @@ jobs:
           fi
           git commit -m "Record prospective station forecast validation"
           git push origin HEAD:main
+      - name: Preserve per-run prospective metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prospective-validation-summary-${{ github.run_id }}
+          path: prospective-validation-summary.json
+          if-no-files-found: ignore
+          retention-days: 90

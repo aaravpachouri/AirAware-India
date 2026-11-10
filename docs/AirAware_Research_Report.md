@@ -578,3 +578,31 @@ Deployed through Streamlit Community Cloud.
 ---
 
 *AirAware India was developed as an independent research and engineering project.*
+
+## 19. Prospective live-station evaluation
+
+Historical city-day scores and live station forecasts are different prediction tasks. To measure the deployed workflow directly, AirAware maintains an append-only prospective ledger. Each eligible forecast is issued for a specific OpenAQ location, records its issue timestamp and model artifact hash, and is evaluated only against a later observation from the same location ID.
+
+### Predefined pairing rule
+
+- Forecast horizon: nominally 24 hours.
+- Eligible observation window: 18–30 hours after issue time.
+- Station identity: exact OpenAQ location ID; no cross-station substitution.
+- Eligibility at issue: latest station measurement no older than six hours and at least three available pollutant sub-indices, including PM2.5 or PM10.
+- Baseline: persistence, evaluated against the exact same later observation.
+- Reported metrics: paired MAE/RMSE, signed bias, median and P90 absolute error, model wins/losses/ties, actual horizon, and per-station/per-city sample counts.
+- Uncertainty: exploratory station-cluster bootstrap interval only when at least five distinct stations have evaluated pairs.
+
+The collection workflow runs twice daily at 01:17 and 13:17 UTC. This cadence is designed around the fixed 18–30 hour matching window; a once-daily schedule can miss forecasts issued manually or at other times. Each run publishes a JSON summary artifact and appends new forecast/evaluation records to the public ledger.
+
+### Initial collection status (10 November 2026)
+
+The first successful collection recorded **25 pending forecasts across 25 distinct station IDs**. At that snapshot, **zero forecasts had matured into evaluated same-station pairs**, so no prospective MAE, RMSE, or model-versus-persistence conclusion was available. These pending forecasts are a collection milestone, not an accuracy result.
+
+The live validation study must remain open until enough later observations have been paired. Report every result with its sample size, station and city coverage, date range, actual forecast horizon, and paired persistence comparison. If the model does not outperform persistence, that is a valid research result and should be reported rather than hidden.
+
+Protocol and live ledger:
+- [Prospective station validation protocol](PROSPECTIVE_VALIDATION.md)
+- [Public prospective validation ledger](../data/prospective_station_validation.jsonl)
+
+The prospective target is an OpenAQ-derived station snapshot based on available pollutant sub-indices. It is **not official CPCB AQI**, not a regulatory 24-hour average, and not an independently certified reference measurement. The study tests the live pipeline's consistency against subsequent same-provider observations; it does not establish health, regulatory, or public-policy impact.
