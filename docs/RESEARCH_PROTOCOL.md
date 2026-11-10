@@ -45,11 +45,15 @@ Report at least:
 
 A more complex model is not considered better merely because its R² is high. Its MAE must be compared against the baselines on the same rows.
 
-### C. City-level generalization
+### C. Expanding-window rolling-origin evaluation
+
+Use at least five sequential, contiguous test blocks after an initial training period. For each fold, expand the training window and test only on a later date block. Because the target for feature date D is AQI on D+1, exclude the feature date immediately before each test block from training so training labels cannot overlap the test period. Fit imputers and estimators independently inside each fold. Report per-fold train/test date boundaries, row counts, MAE/RMSE, pooled out-of-fold metrics, persistence and three-day-mean baselines, and per-city errors. This evaluates temporal stability across successive future periods for cities represented in the dataset; it is not a substitute for unseen-city or live-station validation.
+
+### D. City-level generalization
 
 Use a city-held-out split in which no city in the test set appears in training. Report each held-out city's row count and MAE, plus a macro-average across cities. Do not describe this as equivalent to the chronological holdout: it answers a different question.
 
-### D. Error analysis
+### E. Error analysis
 
 Report:
 - MAE and R² overall;
@@ -91,3 +95,8 @@ The raw data is the city_day.csv file from the Air Quality Data in India (2015�
 - Pinned mirror: https://github.com/govindlabhala-cell/India-Air-Quality-EDA
 
 The mirror is used for reproducibility; it is not claimed to be the original data publisher.
+
+
+## Rolling-origin results
+
+The expanding-window rolling-origin evaluation is run by `python src/rolling_origin_validation.py`. It uses five sequential test blocks after the initial training period, a one-day target-window gap at each fold boundary, and training-fold-only preprocessing. It compares city-aware and city-agnostic Random Forest models plus city-agnostic Ridge against persistence and the three-day mean. The workflow publishes pooled, per-fold, and per-city metrics as CI artifacts. No result is asserted in this protocol until the workflow has completed on the merged commit; the report must preserve every fold and candidate rather than selecting a favourable window.
