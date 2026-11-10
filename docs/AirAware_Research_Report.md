@@ -606,3 +606,9 @@ Protocol and live ledger:
 - [Public prospective validation ledger](../data/prospective_station_validation.jsonl)
 
 The prospective target is an OpenAQ-derived station snapshot based on available pollutant sub-indices. It is **not official CPCB AQI**, not a regulatory 24-hour average, and not an independently certified reference measurement. The study tests the live pipeline's consistency against subsequent same-provider observations; it does not establish health, regulatory, or public-policy impact.
+
+## 20. Expanding-window rolling-origin evaluation
+
+A new temporal robustness experiment evaluates the next-day model across five sequential test blocks using an expanding training window. Unlike a single 80/20 split, this measures whether performance is stable across multiple later periods. At each fold, the feature date immediately preceding the test block is excluded from training because its next-day label would overlap the first test date. Preprocessing is refit within each training fold. The experiment reports pooled out-of-fold metrics, each fold's date boundaries and row counts, and per-city results, comparing city-aware and city-agnostic Random Forest, city-agnostic Ridge, persistence, and the three-day mean.
+
+This is a temporal robustness test for cities represented in the historical dataset. It does not establish generalisation to unseen cities, station-level performance, or official CPCB AQI accuracy. The generated files are `reports/rolling_origin_summary.json`, `reports/rolling_origin_fold_metrics.csv`, and `reports/rolling_origin_city_metrics.csv`; the CI workflow retains them as artifacts.

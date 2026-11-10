@@ -76,6 +76,8 @@ jobs:
         run: python src/model_benchmark.py
       - name: Evaluate repeated city-group validation with paired bootstrap intervals
         run: python src/repeated_city_validation.py
+      - name: Evaluate expanding-window rolling-origin forecasts
+        run: python src/rolling_origin_validation.py
       - name: Report model feature importance
         run: python src/feature_importance.py
       - name: Upload regenerated dataset, model, and plot
@@ -88,6 +90,9 @@ jobs:
             models/airaware_random_forest_v3.joblib
             models/airaware_live_rf.joblib
             reports/actual_vs_predicted.png
+            reports/rolling_origin_summary.json
+            reports/rolling_origin_fold_metrics.csv
+            reports/rolling_origin_city_metrics.csv
           if-no-files-found: error
 
   publish-generated-artifacts:
