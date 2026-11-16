@@ -28,6 +28,7 @@ POLLUTANTS = ("pm25", "pm10", "no2", "so2", "co", "o3")
 LONG_WINDOW = {"pm25", "pm10", "no2", "so2"}
 MIN_HOURS = 16
 MIN_POLLUTANTS = 3
+MIN_HISTORY_DAYS = 14
 
 # Continuous CPCB-style breakpoints avoid artificial gaps between integer bands.
 BREAKPOINTS = {
@@ -247,11 +248,16 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
     """Train only when both chronological and station-held-out tests beat baselines."""
     frame = build_training_frame(records)
     stations = sorted(frame["station_id"].unique().tolist()) if not frame.empty else []
-    if len(frame) < 500 or len(stations) < 5:
+    history_days = 0
+    if not frame.empty:
+        issued = pd.to_datetime(frame["issued_at"], utc=True)
+        history_days = int((issued.max() - issued.min()).total_seconds() // 86400) + 1
+    if len(frame) < 500 or len(stations) < 5 or history_days < MIN_HISTORY_DAYS:
         report = {
             "status": "insufficient_data", "samples": int(len(frame)),
-            "stations": len(stations), "minimum_samples": 500,
-            "minimum_stations": 5,
+            "stations": len(stations), "history_days": history_days,
+            "minimum_samples": 500, "minimum_stations": 5,
+            "minimum_history_days": MIN_HISTORY_DAYS,
             "reason": "Collect more real station-hour history before fitting a station model.",
             "forecast_enabled": False,
         }
@@ -374,12 +380,33 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
     features = _features_at(series, anchor)
     if features is None:
         return {"available": False, "reason": "Station history does not yet meet the 72-hour feature coverage requirement."}
-    fresh_pollutants = [
-        pollutant for pollutant in POLLUTANTS
-        if math.isfinite(float(features.get(pollutant, np.nan)))
-        and any(anchor - timedelta(hours=float(max_data_age_hours)) <= hour < anchor
-                for hour in series.get(pollutant, {}))
-    ]
+    fresh_pollutants = []
+    for pollutant in POLLUTANTS:
+        if not math.isfinite(float(features.get(pollutant, np.nan))):
+            continue
+        recent = sorted(
+            hour for hour in series.get(pollutant, {})
+            if anchor - timedelta(hours=float(max_data_age_hours)) <= hour < anchor
+        )
+        if not recent:
+            continue
+        if pollutant in {"co", "o3"}:
+            # The 8-hour sub-index is fresh only if its complete latest window
+            # also ends within the freshness limit.
+            window_hours = sorted(
+                hour for hour in series.get(pollutant, {})
+                if anchor - timedelta(hours=14) <= hour < anchor
+            )
+            fresh_window = any(
+                len(window_hours[index:index + 8]) == 8
+                and all(window_hours[index + j] - window_hours[index + j - 1]
+                        == timedelta(hours=1) for j in range(1, 8))
+                and window_hours[index + 7] >= anchor - timedelta(hours=float(max_data_age_hours))
+                for index in range(max(0, len(window_hours) - 7))
+            )
+            if not fresh_window:
+                continue
+        fresh_pollutants.append(pollutant)
     if len(fresh_pollutants) < MIN_POLLUTANTS or not ({"pm25", "pm10"} & set(fresh_pollutants)):
         return {"available": False, "reason": "Fewer than three eligible pollutants, including PM2.5 or PM10, have fresh station measurements."}
     observed_hours = [
