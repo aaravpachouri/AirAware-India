@@ -204,12 +204,9 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
         first = all_hours[0].replace(minute=0, second=0, microsecond=0)
         last = all_hours[-1].replace(minute=0, second=0, microsecond=0)
         earliest_issue = first + timedelta(hours=72)
-        anchor_hour = (earliest_issue.hour // 6) * 6
-        anchor = earliest_issue.replace(hour=anchor_hour, minute=0, second=0, microsecond=0)
-        if anchor < earliest_issue:
-            anchor += timedelta(hours=6)
-        # Train with four issue times per day to cover time-of-day variation.
-        # Validation metrics below use one non-overlapping daily issue time.
+        anchor = earliest_issue
+        # Train with hourly issue times to cover all inference hours. Validation
+        # later samples one fixed hour per station for non-overlapping daily targets.
         while anchor + timedelta(hours=24) <= last + timedelta(hours=1):
             features = _features_at(pollutants, anchor)
             target, _ = aqi_for_window(pollutants, anchor + timedelta(hours=24))
@@ -220,7 +217,7 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
                     **features,
                     "target_aqi_24h": target,
                 })
-            anchor += timedelta(hours=6)
+            anchor += timedelta(hours=1)
     if not rows:
         return pd.DataFrame(columns=["station_id", "issued_at", *FEATURES, "target_aqi_24h"])
     return pd.DataFrame(rows).sort_values(["issued_at", "station_id"]).reset_index(drop=True)
@@ -303,8 +300,17 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
         & (frame["issued_at"] >= split_time)
     ]
 
-    temporal_test_daily = temporal_test[temporal_test["issued_at"].dt.hour == 0]
-    station_test_daily = station_test[station_test["issued_at"].dt.hour == 0]
+    # For each station, evaluate one fixed UTC issue hour per day. Different
+    # stations cover all four 6-hour bands while each station's own test
+    # targets remain 24 hours apart and therefore non-overlapping.
+    temporal_test_hours = (temporal_test["station_id"].astype(int) % 4) * 6
+    station_test_hours = (station_test["station_id"].astype(int) % 4) * 6
+    temporal_test_daily = temporal_test[
+        temporal_test["issued_at"].dt.hour == temporal_test_hours
+    ]
+    station_test_daily = station_test[
+        station_test["issued_at"].dt.hour == station_test_hours
+    ]
     if min(len(temporal_train), len(temporal_test_daily), len(station_train), len(station_test_daily)) < 50:
         report = {
             "status": "insufficient_validation_data", "samples": len(frame),
