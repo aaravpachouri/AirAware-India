@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 LEDGER_PATH = ROOT / "data" / "prospective_station_validation.jsonl"
 CURSOR_PATH = ROOT / "data" / "prospective_station_cursor.json"
+HISTORY_CURSOR_PATH = ROOT / "data" / "station_hourly_history_cursor.json"
 MODEL_PATH = ROOT / "models" / "airaware_live_rf.joblib"
 MAX_STATIONS = max(1, min(int(os.getenv("AIR_AWARE_MAX_STATIONS", "25")), 100))
 DISCOVERY_MAX_PAGES = max(1, min(int(os.getenv("AIR_AWARE_DISCOVERY_MAX_PAGES", "20")), 100))
@@ -203,6 +204,7 @@ def run_collection(
     now: datetime | None = None,
     ledger_path: Path = LEDGER_PATH,
     cursor_path: Path = CURSOR_PATH,
+    history_cursor_path: Path = HISTORY_CURSOR_PATH,
 ) -> dict:
     from live_air import (
         get_available_locations,
@@ -223,6 +225,10 @@ def run_collection(
     discovered_stations = get_available_locations(max_pages=DISCOVERY_MAX_PAGES, max_age_days=2)
     previous_cursor = read_station_cursor(cursor_path)
     stations, next_cursor = select_station_batch(discovered_stations, MAX_STATIONS, previous_cursor)
+    previous_history_cursor = read_station_cursor(history_cursor_path)
+    history_stations, next_history_cursor = select_station_batch(
+        discovered_stations, HISTORY_MAX_STATIONS, previous_history_cursor
+    )
 
     snapshots: dict[int, dict] = {}
     data_by_id: dict[int, dict] = {}
@@ -235,7 +241,7 @@ def run_collection(
     # Build a real station-level hourly time series in small rotating batches.
     # This is raw training evidence only; no model is trained from fabricated
     # or city-level proxy rows.
-    for station in stations[:HISTORY_MAX_STATIONS]:
+    for station in history_stations:
         try:
             hourly = get_cpcb_averaged_air_quality(int(station["id"]), station, now=current_time)
             stored = append_station_observations(
@@ -288,6 +294,7 @@ def run_collection(
 
     write_ledger(records, ledger_path)
     write_station_cursor(next_cursor, cursor_path)
+    write_station_cursor(next_history_cursor, history_cursor_path)
     return {
         "stations_discovered": len(discovered_stations),
         "stations_considered": len(stations),
@@ -301,6 +308,9 @@ def run_collection(
         "station_errors": errors,
         "stations_with_errors": len({item["station_id"] for item in errors}),
         "stations_without_eligible_snapshot": max(0, len(stations) - len(snapshots)),
+        "history_batch_cursor_before": previous_history_cursor,
+        "history_batch_cursor_after": next_history_cursor,
+        "history_batch_station_ids": [int(item["id"]) for item in history_stations],
         "history_stations_checked": history_stations_checked,
         "history_observations_seen": history_observations_seen,
         "history_records_added": history_records_added,
