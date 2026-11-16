@@ -44,6 +44,7 @@ jobs:
           AIR_AWARE_MAX_STATIONS: "25"
           AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
           AIR_AWARE_HISTORY_MAX_STATIONS: "10"
+          AIR_AWARE_HISTORY_LOOKBACK_DAYS: "14"
         run: |
           set -euo pipefail
           python src/prospective_station_validation.py | tee station-collection-result.json
@@ -61,6 +62,7 @@ jobs:
               '## Station-hour history collection',
               '',
               f"- Stations checked for hourly history: **{collection.get('history_stations_checked', 0)}**",
+              f"- Backfill window per station: **{collection.get('history_lookback_days', 14)} days**",
               f"- Hourly observations received: **{collection.get('history_observations_seen', 0)}**",
               f"- New deduplicated history rows: **{collection.get('history_records_added', 0)}**",
               f"- History collection errors: **{len(collection.get('history_station_errors', []))}**",
