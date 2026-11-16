@@ -3760,7 +3760,7 @@ if page == "Latest Air":
 
         tomorrow_prediction=tomorrow_prediction,
 
-        provider=live["provider"],
+        provider="OpenAQ v3",
 
     )
 
