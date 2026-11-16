@@ -25,6 +25,7 @@ MIN_HORIZON_HOURS = 18.0
 MAX_HORIZON_HOURS = 30.0
 MIN_POLLUTANTS = 3
 HISTORY_MAX_STATIONS = max(0, min(int(os.getenv("AIR_AWARE_HISTORY_MAX_STATIONS", "10")), 50))
+HISTORY_LOOKBACK_DAYS = max(3, min(int(os.getenv("AIR_AWARE_HISTORY_LOOKBACK_DAYS", "14")), 30))
 HISTORY_PATH = ROOT / "data" / "station_hourly_history.jsonl"
 
 
@@ -243,7 +244,10 @@ def run_collection(
     # or city-level proxy rows.
     for station in history_stations:
         try:
-            hourly = get_cpcb_averaged_air_quality(int(station["id"]), station, now=current_time)
+            hourly = get_cpcb_averaged_air_quality(
+                int(station["id"]), station, now=current_time,
+                history_days=HISTORY_LOOKBACK_DAYS,
+            )
             stored = append_station_observations(
                 station,
                 hourly.get("hourly_observations", []),
@@ -312,6 +316,7 @@ def run_collection(
         "history_batch_cursor_after": next_history_cursor,
         "history_batch_station_ids": [int(item["id"]) for item in history_stations],
         "history_stations_checked": history_stations_checked,
+        "history_lookback_days": HISTORY_LOOKBACK_DAYS,
         "history_observations_seen": history_observations_seen,
         "history_records_added": history_records_added,
         "history_station_errors": history_errors,
