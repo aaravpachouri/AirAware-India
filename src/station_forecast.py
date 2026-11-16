@@ -166,7 +166,7 @@ def aqi_for_window(series: dict[str, dict[datetime, float]], anchor: datetime) -
 
 def _features_at(series: dict[str, dict[datetime, float]], anchor: datetime) -> dict | None:
     current, concentrations = aqi_for_window(series, anchor)
-    previous, _ = aqi_for_window(series, anchor - timedelta(hours=24))
+    previous, previous_concentrations = aqi_for_window(series, anchor - timedelta(hours=24))
     previous2, _ = aqi_for_window(series, anchor - timedelta(hours=48))
     if current is None or previous is None or previous2 is None:
         return None
@@ -184,10 +184,8 @@ def _features_at(series: dict[str, dict[datetime, float]], anchor: datetime) -> 
     }
     for pollutant in POLLUTANTS:
         row[pollutant] = concentrations.get(pollutant, np.nan)
-        old = None
         # Concentration trend compares two non-overlapping 24h windows.
-        _old_aqi, old_values = aqi_for_window(series, anchor - timedelta(hours=24))
-        old = old_values.get(pollutant)
+        old = previous_concentrations.get(pollutant)
         row[f"{pollutant}_change_24h"] = (
             concentrations[pollutant] - old
             if pollutant in concentrations and old is not None else np.nan
