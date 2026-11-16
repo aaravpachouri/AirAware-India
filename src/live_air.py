@@ -1620,6 +1620,7 @@ def get_cpcb_averaged_air_quality(
     location: dict | None = None,
     *,
     now: datetime | None = None,
+    history_days: int = 1,
 ) -> dict:
     """Fetch full-location hourly sensor data and assess AQI data coverage.
 
@@ -1644,7 +1645,11 @@ def get_cpcb_averaged_air_quality(
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
     end = end.astimezone(timezone.utc)
-    start = end - timedelta(hours=24)
+    # The optional longer window is used by the rotating training-history
+    # collector. The returned AQI coverage assessment remains a rolling 24h
+    # assessment; only the raw hourly_observations list spans history_days.
+    history_days = max(1, min(int(history_days), 30))
+    start = end - timedelta(days=history_days)
 
     observations: dict[str, list[dict[str, Any]]] = {}
     diagnostics: dict[str, dict[str, Any]] = {}
@@ -1669,7 +1674,7 @@ def get_cpcb_averaged_air_quality(
                     params={
                         "datetime_from": start.isoformat(),
                         "datetime_to": end.isoformat(),
-                        "limit": 100,
+                        "limit": 1000 if history_days > 1 else 100,
                         "page": 1,
                     },
                 )
