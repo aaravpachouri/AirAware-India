@@ -54,6 +54,7 @@ from live_air import (
 )
 
 from live_forecast_features import build_live_forecast_features
+from station_forecast import predict_station_forecast
 
 
 
@@ -3707,10 +3708,18 @@ if page == "Latest Air":
         if not has_positive_measurement:
             current_aqi = None
 
-    # The existing Random Forest is trained on city-day historical data.
-    # It has not been validated on station-level time series, so do not
-    # present it as a station-specific tomorrow forecast.
-    tomorrow_prediction = None
+    # The legacy city-day model is never used for station forecasts. The new
+    # model is eligible only after independent time and station holdouts pass.
+    station_forecast = {"available": False, "reason": "A validated station-level model is not published yet."}
+    if hourly_aqi is not None:
+        try:
+            station_forecast = predict_station_forecast(int(selected_location["id"]))
+        except Exception as error:
+            station_forecast = {"available": False, "reason": str(error)[:180]}
+    tomorrow_prediction = (
+        float(station_forecast["predicted_aqi"])
+        if station_forecast.get("available") else None
+    )
 
 
     hero_category = (
@@ -3759,11 +3768,23 @@ if page == "Latest Air":
                 + ". Required: at least 3 eligible pollutants including PM2.5 or PM10."
             )
 
-    st.info(
-        "Station-specific tomorrow forecasts are temporarily withheld. "
-        "The existing model was trained on city-level historical data and has not "
-        "yet passed prospective station-level validation."
-    )
+    if station_forecast.get("available"):
+        st.success(
+            "Tomorrow's station-level trend forecast is enabled after passing "
+            "chronological and held-out-station baseline tests. "
+            "This is an OpenAQ-derived research estimate, not an official CPCB forecast."
+        )
+        st.caption(
+            f"Forecast target: {station_forecast.get('target_at')} · "
+            f"Station history age: {station_forecast.get('data_age_hours')} hours · "
+            f"Current station-window AQI: {station_forecast.get('current_aqi')}"
+        )
+    else:
+        st.info(
+            "Tomorrow's forecast is unavailable for this station. "
+            + str(station_forecast.get("reason") or
+                  "More station-specific hourly history is needed before a reliable forecast can be published.")
+        )
 
 
     st.markdown("### Station intelligence & research validation")
