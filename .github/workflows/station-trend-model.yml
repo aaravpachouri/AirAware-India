@@ -56,7 +56,7 @@ jobs:
                             f"- 3-day mean MAE: {result[key]['three_day_mean_mae']}",
                             f"- Improvement over best baseline: {result[key]['improvement_over_best_baseline_pct']}%"]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
-              handle.write("\\n".join(lines) + "\\n")
+              handle.write("\n".join(lines) + "\n")
           PY
       - name: Commit validation report and approved model only
         run: |
