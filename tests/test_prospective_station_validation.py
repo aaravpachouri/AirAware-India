@@ -112,3 +112,37 @@ def test_summary_bootstraps_whole_station_clusters():
     assert interval is not None
     assert interval["lower"] <= interval["upper"]
     assert "Exploratory paired percentile interval" in result["bootstrap_note"]
+
+
+def test_station_batches_rotate_without_permanent_newest_station_bias():
+    from prospective_station_validation import select_station_batch
+
+    stations = [{"id": value} for value in [9, 2, 7, 1, 5, 3, 8, 4, 6]]
+    first, cursor = select_station_batch(stations, 4, None)
+    second, cursor = select_station_batch(stations, 4, cursor)
+    third, cursor = select_station_batch(stations, 4, cursor)
+
+    assert [item["id"] for item in first] == [1, 2, 3, 4]
+    assert [item["id"] for item in second] == [5, 6, 7, 8]
+    assert [item["id"] for item in third] == [9, 1, 2, 3]
+
+
+def test_station_batch_resumes_after_cursor_station_disappears():
+    from prospective_station_validation import select_station_batch
+
+    stations = [{"id": 2}, {"id": 8}, {"id": 12}, {"id": 20}]
+    selected, next_cursor = select_station_batch(stations, 2, 9)
+    assert [item["id"] for item in selected] == [12, 20]
+    assert next_cursor == 2
+
+
+def test_station_batch_handles_empty_inventory_and_cursor_round_trip(tmp_path):
+    from prospective_station_validation import (
+        read_station_cursor, select_station_batch, write_station_cursor,
+    )
+
+    assert select_station_batch([], 10, None) == ([], None)
+    path = tmp_path / "cursor.json"
+    assert read_station_cursor(path) is None
+    write_station_cursor(42, path)
+    assert read_station_cursor(path) == 42
