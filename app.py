@@ -1220,6 +1220,32 @@ def load_location_air(location_id, location_data):
 
 
 
+@st.cache_data(ttl=1800)
+
+def load_hourly_aqi(location_id):
+
+    """Cache validated hourly station data to limit provider requests."""
+
+    from cpcb_live_aqi import aggregate_hourly_observations
+
+    coverage = get_cpcb_averaged_air_quality(location_id)
+
+    estimate = estimate_cpcb_style_aqi(coverage.get("averages", {}))
+
+    return {
+
+        "coverage": coverage,
+
+        "aqi": estimate.get("aqi") if coverage.get("eligible") else None,
+
+        "subindices": estimate.get("subindices", {}),
+
+    }
+
+
+
+
+
 def historical_aqi_category(aqi):
 
     if aqi <= 50:
@@ -3645,91 +3671,46 @@ if page == "Latest Air":
 
     pollutants = live["pollutants"]
 
-    raw_aqi = safe_float(live["aqi"])
+    snapshot_aqi = safe_float(live["aqi"])
 
-    live_subindices = live.get("subindices", {}) or {}
+    snapshot_subindices = live.get("subindices", {}) or {}
 
+    hourly_aqi = None
+    hourly_subindices = {}
+    hourly_coverage = None
+    hourly_error = None
 
+    try:
+        hourly_result = load_hourly_aqi(selected_location["id"])
+        hourly_aqi = safe_float(hourly_result.get("aqi"))
+        hourly_subindices = hourly_result.get("subindices", {}) or {}
+        hourly_coverage = hourly_result.get("coverage", {})
+    except Exception as error:
+        hourly_error = str(error)[:240]
 
-    positive_pollutants = [
-
-        safe_float(value)
-
-        for value in pollutants.values()
-
-        if safe_float(value) is not None
-
-        and safe_float(value) > 0
-
-    ]
-
-
-
-    positive_subindices = [
-
-        safe_float(value)
-
-        for value in live_subindices.values()
-
-        if safe_float(value) is not None
-
-        and safe_float(value) > 0
-
-    ]
-
-
-
-    # Prefer the calculated AQI. If an all-zero result is returned while
-
-    # usable positive sub-indices exist, recover from those sub-indices.
-
-    # If the station truly has no usable positive pollution observations,
-
-    # show "Unavailable" instead of inventing an AQI of 0.
-
-    if raw_aqi is not None and raw_aqi > 0:
-
-        current_aqi = raw_aqi
-
-    elif positive_subindices:
-
-        current_aqi = max(positive_subindices)
-
-    elif positive_pollutants:
-
-        current_aqi = raw_aqi
-
+    # A validated hourly estimate takes priority. If coverage is inadequate,
+    # retain the latest snapshot only as an explicitly labelled estimate.
+    if hourly_aqi is not None:
+        current_aqi = hourly_aqi
+        live_subindices = hourly_subindices
+        aqi_basis = "Validated OpenAQ hourly averages"
     else:
+        current_aqi = snapshot_aqi
+        live_subindices = snapshot_subindices
+        aqi_basis = "Latest-measurement snapshot estimate"
 
-        current_aqi = None
+    if current_aqi is not None and current_aqi <= 0:
+        has_positive_measurement = any(
+            safe_float(value) is not None and safe_float(value) > 0
+            for value in pollutants.values()
+        )
+        if not has_positive_measurement:
+            current_aqi = None
 
-
-
+    # The existing Random Forest is trained on city-day historical data.
+    # It has not been validated on station-level time series, so do not
+    # present it as a station-specific tomorrow forecast.
     tomorrow_prediction = None
-
-
-
-    if current_aqi is not None:
-
-        timestamp = live["timestamp"]
-
-
-
-        try:
-            forecast_features = build_live_forecast_features(
-                current_aqi=current_aqi,
-                pollutants=pollutants,
-                timestamp=timestamp,
-            )
-            live_model = load_live_model()
-            tomorrow_prediction = float(
-                live_model.predict(forecast_features)[0]
-            )
-            tomorrow_prediction = round(
-                max(0, min(tomorrow_prediction, 500))
-            )
-        except Exception as error:
-            st.warning(f"Forecast unavailable: {error}")
 
 
     hero_category = (
@@ -3758,6 +3739,30 @@ if page == "Latest Air":
 
         provider=live["provider"],
 
+    )
+
+
+    if hourly_aqi is not None:
+        st.success(
+            f"Current index uses {aqi_basis.lower()}. "
+            "It is an OpenAQ-derived research estimate, not an official CPCB reading."
+        )
+    else:
+        st.warning(
+            f"Current index is a snapshot estimate, not a validated 24-hour AQI. "
+            f"Hourly coverage is insufficient or unavailable. {hourly_error or ''}"
+        )
+        if hourly_coverage:
+            st.caption(
+                "Hourly coverage status: "
+                + str(hourly_coverage.get("status", "unknown"))
+                + ". Required: at least 3 eligible pollutants including PM2.5 or PM10."
+            )
+
+    st.info(
+        "Station-specific tomorrow forecasts are temporarily withheld. "
+        "The existing model was trained on city-level historical data and has not "
+        "yet passed prospective station-level validation."
     )
 
 
@@ -4290,8 +4295,9 @@ if page == "Latest Air":
     research_note_html = textwrap.dedent("""
 <div class="aa-note">
 <strong>Data source:</strong> OpenAQ monitoring data.<br><br>
-<strong>Forecast:</strong> AirAware Random Forest model trained on historical
-Indian air-quality observations.<br><br>
+<strong>Forecast:</strong> Station-level forecasts are shown only after a model has
+been trained and prospectively validated on station-specific time series. The legacy
+city-level model is not presented as a station forecast.<br><br>
 <strong>Important limitation:</strong> Official CPCB AQI uses prescribed
 averaging periods and sufficient observations. AirAware's current live estimate
 is therefore labelled an <strong>estimated CPCB-style AQI</strong>.
