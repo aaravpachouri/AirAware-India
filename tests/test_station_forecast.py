@@ -132,3 +132,48 @@ def test_training_issues_cover_four_six_hourly_times_per_day():
     assert hours == {0, 6, 12, 18}
     ordered = pd.to_datetime(frame["issued_at"], utc=True).drop_duplicates().sort_values()
     assert set(ordered.diff().dropna().dt.total_seconds() / 3600) == {6.0}
+
+
+
+def test_prediction_merges_selected_station_live_history_without_cross_station_data(tmp_path, monkeypatch):
+    import json
+    import station_forecast
+
+    issue = datetime(2026, 1, 11, 0, tzinfo=timezone.utc)
+    history = _synthetic_history(station_id=42, start=issue - timedelta(hours=240), hours=240)
+    history_path = tmp_path / "history.jsonl"
+    history_path.write_text(
+        "".join(json.dumps(row) + "\n" for row in history),
+        encoding="utf-8",
+    )
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"status": "validated", "forecast_enabled": True}))
+    model_path = tmp_path / "model.joblib"
+    model_path.write_text("test placeholder")
+
+    class FakeModel:
+        def predict(self, frame):
+            assert frame.iloc[0]["pm25"] > 20
+            return [115.0]
+
+    monkeypatch.setattr(
+        station_forecast.joblib, "load",
+        lambda path: {
+            "model": FakeModel(),
+            "features": list(FEATURES),
+            "validation_status": "validated",
+        },
+    )
+    live = [{
+        "sensor_id": 1, "pollutant": "pm25",
+        "timestamp": (issue - timedelta(minutes=30)).isoformat(),
+        "value": 1000.0,
+    }]
+    result = station_forecast.predict_station_forecast(
+        42, issued_at=issue, history_path=history_path,
+        model_path=model_path, report_path=report_path,
+        additional_observations=live,
+    )
+    assert result["available"] is True
+    assert result["predicted_aqi"] == 115.0
+    assert result["station_id"] == 42
