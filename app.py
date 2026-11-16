@@ -1229,7 +1229,9 @@ def load_hourly_aqi(location_id):
 
     from cpcb_live_aqi import aggregate_hourly_observations
 
-    coverage = get_cpcb_averaged_air_quality(location_id)
+    # The same hourly request also returns a rolling 30-day station history
+    # for trend features; AQI coverage itself is still assessed over 24 hours.
+    coverage = get_cpcb_averaged_air_quality(location_id, history_days=30)
 
     estimate = estimate_cpcb_style_aqi(coverage.get("averages", {}))
 
@@ -3713,7 +3715,13 @@ if page == "Latest Air":
     station_forecast = {"available": False, "reason": "A validated station-level model is not published yet."}
     if hourly_aqi is not None:
         try:
-            station_forecast = predict_station_forecast(int(selected_location["id"]))
+            station_forecast = predict_station_forecast(
+                int(selected_location["id"]),
+                additional_observations=(
+                    hourly_result.get("coverage", {}).get("hourly_observations", [])
+                    if hourly_result else []
+                ),
+            )
         except Exception as error:
             station_forecast = {"available": False, "reason": str(error)[:180]}
     tomorrow_prediction = (
