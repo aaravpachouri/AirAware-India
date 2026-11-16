@@ -197,7 +197,11 @@ def make_record(station: dict, data: dict, prediction: float, current_aqi: int,
     }
 
 
-def run_collection(\n    now: datetime | None = None,\n    ledger_path: Path = LEDGER_PATH,\n    cursor_path: Path = CURSOR_PATH,\n) -> dict:
+def run_collection(
+    now: datetime | None = None,
+    ledger_path: Path = LEDGER_PATH,
+    cursor_path: Path = CURSOR_PATH,
+) -> dict:
     from live_air import get_available_locations, get_live_air_quality
     from live_forecast_features import build_live_forecast_features
 
