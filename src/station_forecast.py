@@ -204,11 +204,12 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
         first = all_hours[0].replace(minute=0, second=0, microsecond=0)
         last = all_hours[-1].replace(minute=0, second=0, microsecond=0)
         earliest_issue = first + timedelta(hours=72)
-        anchor = earliest_issue.replace(hour=0, minute=0, second=0, microsecond=0)
+        anchor_hour = (earliest_issue.hour // 6) * 6
+        anchor = earliest_issue.replace(hour=anchor_hour, minute=0, second=0, microsecond=0)
         if anchor < earliest_issue:
-            anchor += timedelta(days=1)
-        # One fixed UTC issue time per day avoids inflating validation with
-        # highly overlapping hourly 24-hour target windows.
+            anchor += timedelta(hours=6)
+        # Train with four issue times per day to cover time-of-day variation.
+        # Validation metrics below use one non-overlapping daily issue time.
         while anchor + timedelta(hours=24) <= last + timedelta(hours=1):
             features = _features_at(pollutants, anchor)
             target, _ = aqi_for_window(pollutants, anchor + timedelta(hours=24))
@@ -219,7 +220,7 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
                     **features,
                     "target_aqi_24h": target,
                 })
-            anchor += timedelta(days=1)
+            anchor += timedelta(hours=6)
     if not rows:
         return pd.DataFrame(columns=["station_id", "issued_at", *FEATURES, "target_aqi_24h"])
     return pd.DataFrame(rows).sort_values(["issued_at", "station_id"]).reset_index(drop=True)
@@ -302,10 +303,12 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
         & (frame["issued_at"] >= split_time)
     ]
 
-    if min(len(temporal_train), len(temporal_test), len(station_train), len(station_test)) < 50:
+    temporal_test_daily = temporal_test[temporal_test["issued_at"].dt.hour == 0]
+    station_test_daily = station_test[station_test["issued_at"].dt.hour == 0]
+    if min(len(temporal_train), len(temporal_test_daily), len(station_train), len(station_test_daily)) < 50:
         report = {
             "status": "insufficient_validation_data", "samples": len(frame),
-            "stations": len(stations), "reason": "Not enough independent rows in both holdouts.",
+            "stations": len(stations), "reason": "Not enough non-overlapping daily rows in both holdouts.",
         }
         report["forecast_enabled"] = False
         _write_report(report, report_path)
@@ -325,14 +328,14 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
     model = pipeline()
     model.fit(temporal_train[list(FEATURES)], temporal_train["target_aqi_24h"])
     temporal_metrics = _metrics(
-        temporal_test, model.predict(temporal_test[list(FEATURES)])
+        temporal_test_daily, model.predict(temporal_test_daily[list(FEATURES)])
     )
 
     # A second model is fitted without any samples from held-out stations.
     station_model = pipeline()
     station_model.fit(station_train[list(FEATURES)], station_train["target_aqi_24h"])
     station_metrics = _metrics(
-        station_test, station_model.predict(station_test[list(FEATURES)])
+        station_test_daily, station_model.predict(station_test_daily[list(FEATURES)])
     )
     temporal_pass = temporal_metrics["model_mae"] < temporal_metrics["best_baseline_mae"] * 0.95
     station_pass = station_metrics["model_mae"] < station_metrics["best_baseline_mae"] * 0.95
