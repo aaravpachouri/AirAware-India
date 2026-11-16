@@ -1227,11 +1227,17 @@ def load_hourly_aqi(location_id):
 
     """Cache validated hourly station data to limit provider requests."""
 
-    from cpcb_live_aqi import aggregate_hourly_observations
+    from hourly_compat import fetch_hourly_station_data
 
-    # The same hourly request also returns a rolling 30-day station history
-    # for trend features; AQI coverage itself is still assessed over 24 hours.
-    coverage = get_cpcb_averaged_air_quality(location_id, history_days=30)
+    # Prefer a 30-day station history for trend features. Some already-running
+    # Streamlit workers may temporarily have an older live_air.py without the
+    # history_days keyword; retry that older signature for the rolling 24-hour
+    # AQI rather than failing the entire live-monitoring panel.
+    coverage = fetch_hourly_station_data(
+        get_cpcb_averaged_air_quality,
+        location_id,
+        history_days=30,
+    )
 
     estimate = estimate_cpcb_style_aqi(coverage.get("averages", {}))
 
