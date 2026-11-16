@@ -75,3 +75,39 @@ def test_hourly_request_failures_are_visible_in_sensor_diagnostics(monkeypatch):
     assert diagnostic["requests_succeeded"] == 0
     assert "temporary provider outage" in diagnostic["errors"][0]
     assert "hourly request returned no records" in result["rejected_pollutants"]["pm10"]
+
+
+
+def test_station_history_backfill_requests_14_days_and_preserves_raw_hourly_rows(monkeypatch):
+    now = datetime(2026, 11, 16, 12, tzinfo=timezone.utc)
+    full_location = {
+        "name": "Backfill test station",
+        "sensors": [
+            {"id": 301, "parameter": {"name": "pm2.5", "units": "µg/m³"}}
+        ],
+    }
+    captured = {}
+    monkeypatch.setattr(live_air, "get_location", lambda location_id: full_location)
+
+    def fake_get(endpoint, params=None):
+        captured.update(params or {})
+        rows = [{
+            "datetimeFrom": {"utc": (now - timedelta(days=10)).isoformat()},
+            "value": 18.0,
+        }]
+        rows.extend({
+            "datetimeFrom": {"utc": (now - timedelta(hours=offset)).isoformat()},
+            "value": 20.0 + offset / 10,
+        } for offset in range(1, 17))
+        return {"results": rows}
+
+    monkeypatch.setattr(live_air, "_get", fake_get)
+    result = live_air.get_cpcb_averaged_air_quality(
+        99, now=now, history_days=14
+    )
+
+    assert captured["limit"] == 1000
+    assert captured["datetime_from"] == (now - timedelta(days=14)).isoformat()
+    assert len(result["hourly_observations"]) == 17
+    assert any(row["timestamp"] == (now - timedelta(days=10)).isoformat().replace("+00:00", "Z")
+               for row in result["hourly_observations"])
