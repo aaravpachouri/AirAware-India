@@ -44,7 +44,7 @@ jobs:
           AIR_AWARE_MAX_STATIONS: "25"
           AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
           AIR_AWARE_HISTORY_MAX_STATIONS: "10"
-        run: python src/prospective_station_validation.py
+        run: python src/prospective_station_validation.py | tee station-collection-result.json
       - name: Summarise prospective validation
         run: |
           set -euo pipefail
@@ -54,7 +54,16 @@ jobs:
           import os
           from pathlib import Path
           summary = json.loads(Path('prospective-validation-summary.json').read_text(encoding='utf-8'))
+          collection = json.loads(Path('station-collection-result.json').read_text(encoding='utf-8'))
           lines = [
+              '## Station-hour history collection',
+              '',
+              f"- Stations checked for hourly history: **{collection.get('history_stations_checked', 0)}**",
+              f"- Hourly observations received: **{collection.get('history_observations_seen', 0)}**",
+              f"- New deduplicated history rows: **{collection.get('history_records_added', 0)}**",
+              f"- History collection errors: **{len(collection.get('history_station_errors', []))}**",
+              '',
+
               '## Prospective station validation',
               '',
               f"- Evaluated forecasts: **{summary.get('evaluated_forecasts', 0)}**",
@@ -87,6 +96,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prospective-validation-summary-${{ github.run_id }}
-          path: prospective-validation-summary.json
+          path: |
+            prospective-validation-summary.json
+            station-collection-result.json
           if-no-files-found: ignore
           retention-days: 90
