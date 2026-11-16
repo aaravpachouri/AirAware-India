@@ -253,6 +253,7 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
             "stations": len(stations), "minimum_samples": 500,
             "minimum_stations": 5,
             "reason": "Collect more real station-hour history before fitting a station model.",
+            "forecast_enabled": False,
         }
         _write_report(report, report_path)
         if Path(model_path).exists():
