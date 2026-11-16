@@ -42,6 +42,7 @@ jobs:
         env:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
           AIR_AWARE_MAX_STATIONS: "25"
+          AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
         run: python src/prospective_station_validation.py
       - name: Summarise prospective validation
         run: |
@@ -73,7 +74,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/prospective_station_validation.jsonl
+          git add data/prospective_station_validation.jsonl data/prospective_station_cursor.json
           if git diff --cached --quiet; then
             echo "No new forecast or evaluation records."
             exit 0

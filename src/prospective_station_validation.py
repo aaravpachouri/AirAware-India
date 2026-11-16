@@ -15,8 +15,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 LEDGER_PATH = ROOT / "data" / "prospective_station_validation.jsonl"
+CURSOR_PATH = ROOT / "data" / "prospective_station_cursor.json"
 MODEL_PATH = ROOT / "models" / "airaware_live_rf.joblib"
 MAX_STATIONS = max(1, min(int(os.getenv("AIR_AWARE_MAX_STATIONS", "25")), 100))
+DISCOVERY_MAX_PAGES = max(1, min(int(os.getenv("AIR_AWARE_DISCOVERY_MAX_PAGES", "20")), 100))
 MAX_AGE_HOURS = 6.0
 MIN_HORIZON_HOURS = 18.0
 MAX_HORIZON_HOURS = 30.0
@@ -56,6 +58,53 @@ def write_ledger(records: list[dict], path: Path = LEDGER_PATH) -> None:
         for record in records:
             handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
     temporary.replace(path)
+
+
+def read_station_cursor(path: Path = CURSOR_PATH) -> int | None:
+    """Read the next station ID for fair, persistent batch rotation."""
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        value = payload.get("next_station_id")
+        return int(value) if value is not None else None
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def write_station_cursor(next_station_id: int | None, path: Path = CURSOR_PATH) -> None:
+    """Atomically persist the next station ID after a completed batch."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "next_station_id": int(next_station_id) if next_station_id is not None else None,
+        "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def select_station_batch(
+    stations: list[dict], limit: int, next_station_id: int | None
+) -> tuple[list[dict], int | None]:
+    """Select a stable rotating batch; a missing cursor resumes at next ID."""
+    ordered = sorted(
+        {int(item["id"]): item for item in stations if item.get("id") is not None}.values(),
+        key=lambda item: int(item["id"]),
+    )
+    if not ordered:
+        return [], None
+    ids = [int(item["id"]) for item in ordered]
+    start = 0
+    if next_station_id is not None:
+        while start < len(ids) and ids[start] < int(next_station_id):
+            start += 1
+        if start >= len(ids):
+            start = 0
+    count = min(max(1, int(limit)), len(ordered))
+    selected = [ordered[(start + offset) % len(ordered)] for offset in range(count)]
+    next_index = (start + count) % len(ordered)
+    return selected, ids[next_index]
 
 
 def eligible_aqi(data: dict, now: datetime) -> tuple[int, list[str]] | None:
@@ -148,7 +197,11 @@ def make_record(station: dict, data: dict, prediction: float, current_aqi: int,
     }
 
 
-def run_collection(now: datetime | None = None, ledger_path: Path = LEDGER_PATH) -> dict:
+def run_collection(
+    now: datetime | None = None,
+    ledger_path: Path = LEDGER_PATH,
+    cursor_path: Path = CURSOR_PATH,
+) -> dict:
     from live_air import get_available_locations, get_live_air_quality
     from live_forecast_features import build_live_forecast_features
 
@@ -160,8 +213,9 @@ def run_collection(now: datetime | None = None, ledger_path: Path = LEDGER_PATH)
     model_hash = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
     model = joblib.load(MODEL_PATH)
     records = read_ledger(ledger_path)
-    stations = get_available_locations(max_pages=5, max_age_days=2)
-    stations = sorted(stations, key=lambda x: x.get("last_datetime") or "", reverse=True)[:MAX_STATIONS]
+    discovered_stations = get_available_locations(max_pages=DISCOVERY_MAX_PAGES, max_age_days=2)
+    previous_cursor = read_station_cursor(cursor_path)
+    stations, next_cursor = select_station_batch(discovered_stations, MAX_STATIONS, previous_cursor)
 
     snapshots: dict[int, dict] = {}
     data_by_id: dict[int, dict] = {}
@@ -201,15 +255,22 @@ def run_collection(now: datetime | None = None, ledger_path: Path = LEDGER_PATH)
             errors.append({"station_id": station_id, "error": str(exc)[:200]})
 
     write_ledger(records, ledger_path)
+    write_station_cursor(next_cursor, cursor_path)
     return {
+        "stations_discovered": len(discovered_stations),
         "stations_considered": len(stations),
+        "batch_cursor_before": previous_cursor,
+        "batch_cursor_after": next_cursor,
         "eligible_station_snapshots": len(snapshots),
         "forecasts_created": created,
         "forecasts_paired": paired,
         "evaluated_forecasts_total": sum(x.get("status") == "evaluated" for x in records),
         "pending_forecasts_total": sum(x.get("status") == "pending" for x in records),
         "station_errors": errors,
+        "stations_with_errors": len({item["station_id"] for item in errors}),
+        "stations_without_eligible_snapshot": max(0, len(stations) - len(snapshots)),
         "ledger": str(ledger_path),
+        "cursor": str(cursor_path),
     }
 
 
