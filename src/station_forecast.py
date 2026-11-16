@@ -374,8 +374,16 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
     features = _features_at(series, anchor)
     if features is None:
         return {"available": False, "reason": "Station history does not yet meet the 72-hour feature coverage requirement."}
+    fresh_pollutants = [
+        pollutant for pollutant in POLLUTANTS
+        if math.isfinite(float(features.get(pollutant, np.nan)))
+        and any(anchor - timedelta(hours=float(max_data_age_hours)) <= hour < anchor
+                for hour in series.get(pollutant, {}))
+    ]
+    if len(fresh_pollutants) < MIN_POLLUTANTS or not ({"pm25", "pm10"} & set(fresh_pollutants)):
+        return {"available": False, "reason": "Fewer than three eligible pollutants, including PM2.5 or PM10, have fresh station measurements."}
     observed_hours = [
-        hour for pollutant in POLLUTANTS
+        hour for pollutant in fresh_pollutants
         for hour in series.get(pollutant, {})
         if hour < anchor
     ]
