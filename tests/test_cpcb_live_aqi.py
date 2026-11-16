@@ -74,3 +74,15 @@ def test_negative_and_nonfinite_values_are_not_used():
     values[1]["value"] = float("inf")
     result = aggregate_hourly_observations({"pm25": values}, now=NOW)
     assert result["coverage"]["pm25"]["valid_hours_in_24h"] == 18
+
+
+
+def test_multiple_sensors_for_same_pollutant_are_averaged_within_each_hour():
+    values = []
+    for offset in range(24, 0, -1):
+        stamp = NOW - timedelta(hours=offset)
+        values.append({"timestamp": stamp, "value": 20, "sensor_id": 1})
+        values.append({"timestamp": stamp, "value": 40, "sensor_id": 2})
+    result = aggregate_hourly_observations({"pm25": values}, now=NOW)
+    assert result["coverage"]["pm25"]["valid_hours_in_24h"] == 24
+    assert result["averages"]["pm25"] == 30
