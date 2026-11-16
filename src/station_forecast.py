@@ -255,6 +255,8 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
             "reason": "Collect more real station-hour history before fitting a station model.",
         }
         _write_report(report, report_path)
+        if Path(model_path).exists():
+            Path(model_path).unlink()
         return report
 
     frame["issued_at"] = pd.to_datetime(frame["issued_at"], utc=True)
@@ -270,7 +272,10 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
             "status": "insufficient_validation_data", "samples": len(frame),
             "stations": len(stations), "reason": "Not enough independent rows in both holdouts.",
         }
+        report["forecast_enabled"] = False
         _write_report(report, report_path)
+        if Path(model_path).exists():
+            Path(model_path).unlink()
         return report
 
     def pipeline():
@@ -320,8 +325,12 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
     _write_report(report, report_path)
     model_path = Path(model_path)
     if passed:
+        # Refit the approved architecture on all available history only after
+        # both untouched evaluation splits have passed their baseline gates.
+        final_model = pipeline()
+        final_model.fit(frame[list(FEATURES)], frame["target_aqi_24h"])
         model_path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump({"model": model, "features": list(FEATURES),
+        joblib.dump({"model": final_model, "features": list(FEATURES),
                      "validation_status": "validated", "report": str(report_path)}, model_path)
     elif model_path.exists():
         model_path.unlink()
@@ -334,6 +343,66 @@ def _write_report(report: dict, path: Path) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+
+def predict_station_forecast(station_id: int, *, issued_at: datetime | None = None,
+                             history_path: Path = DEFAULT_HISTORY,
+                             model_path: Path = MODEL_PATH,
+                             report_path: Path = REPORT_PATH,
+                             max_data_age_hours: float = 6.0) -> dict:
+    """Return a forecast only when the approved model and fresh station history exist."""
+    report_path = Path(report_path)
+    model_path = Path(model_path)
+    if not report_path.exists() or not model_path.exists():
+        return {"available": False, "reason": "No validated station-level model is published."}
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {"available": False, "reason": "Station model validation report is unavailable."}
+    if report.get("status") != "validated" or report.get("forecast_enabled") is not True:
+        return {"available": False, "reason": "Station model has not passed both baseline gates."}
+    records = read_history(history_path)
+    series_by_station = hourly_station_series(records)
+    station_id = int(station_id)
+    series = series_by_station.get(station_id)
+    if not series:
+        return {"available": False, "reason": "No hourly history is available for this station."}
+    anchor = _utc(issued_at or datetime.now(timezone.utc))
+    anchor = anchor.replace(minute=0, second=0, microsecond=0)
+    features = _features_at(series, anchor)
+    if features is None:
+        return {"available": False, "reason": "Station history does not yet meet the 72-hour feature coverage requirement."}
+    observed_hours = [
+        hour for pollutant in POLLUTANTS
+        for hour in series.get(pollutant, {})
+        if hour < anchor
+    ]
+    if not observed_hours:
+        return {"available": False, "reason": "No timestamped station measurements are available."}
+    age = (anchor - max(observed_hours)).total_seconds() / 3600
+    if age < 0 or age > float(max_data_age_hours):
+        return {"available": False, "reason": "Station history is stale for a live forecast.", "data_age_hours": round(age, 2)}
+    try:
+        artifact = joblib.load(model_path)
+        if artifact.get("validation_status") != "validated" or artifact.get("features") != list(FEATURES):
+            return {"available": False, "reason": "Station model artifact failed its validation/schema check."}
+        prediction = float(artifact["model"].predict(pd.DataFrame([features], columns=FEATURES))[0])
+    except Exception as exc:
+        return {"available": False, "reason": f"Station model could not produce a forecast: {str(exc)[:160]}"}
+    if not math.isfinite(prediction):
+        return {"available": False, "reason": "Station model returned a non-finite forecast."}
+    return {
+        "available": True,
+        "station_id": station_id,
+        "issued_at": anchor.isoformat().replace("+00:00", "Z"),
+        "target_at": (anchor + timedelta(hours=24)).isoformat().replace("+00:00", "Z"),
+        "current_aqi": round(float(features["aqi_current"]), 1),
+        "predicted_aqi": round(max(0.0, min(500.0, prediction)), 1),
+        "data_age_hours": round(age, 2),
+        "validation": "Chronological and held-out-station tests beat persistence and 3-day mean by at least 5%.",
+        "basis": "OpenAQ-derived station-hour history; not an official CPCB forecast.",
+    }
 
 
 def main() -> None:
