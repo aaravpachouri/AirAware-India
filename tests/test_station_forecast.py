@@ -125,13 +125,13 @@ def test_future_observations_change_target_but_never_issue_time_features():
 
 
 
-def test_training_issues_cover_four_six_hourly_times_per_day():
+def test_training_issues_cover_all_hours_for_any_time_of_day_inference():
     frame = build_training_frame(_synthetic_history(hours=240))
     assert not frame.empty
     hours = set(pd.to_datetime(frame["issued_at"], utc=True).dt.hour)
-    assert hours == {0, 6, 12, 18}
+    assert hours == set(range(24))
     ordered = pd.to_datetime(frame["issued_at"], utc=True).drop_duplicates().sort_values()
-    assert set(ordered.diff().dropna().dt.total_seconds() / 3600) == {6.0}
+    assert set(ordered.diff().dropna().dt.total_seconds() / 3600) == {1.0}
 
 
 
