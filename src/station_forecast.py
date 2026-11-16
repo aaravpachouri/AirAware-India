@@ -28,7 +28,7 @@ POLLUTANTS = ("pm25", "pm10", "no2", "so2", "co", "o3")
 LONG_WINDOW = {"pm25", "pm10", "no2", "so2"}
 MIN_HOURS = 16
 MIN_POLLUTANTS = 3
-MIN_HISTORY_DAYS = 14
+MIN_HISTORY_DAYS = 30
 
 # Continuous CPCB-style breakpoints avoid artificial gaps between integer bands.
 BREAKPOINTS = {
@@ -203,7 +203,12 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
             continue
         first = all_hours[0].replace(minute=0, second=0, microsecond=0)
         last = all_hours[-1].replace(minute=0, second=0, microsecond=0)
-        anchor = first + timedelta(hours=48)
+        earliest_issue = first + timedelta(hours=72)
+        anchor = earliest_issue.replace(hour=0, minute=0, second=0, microsecond=0)
+        if anchor < earliest_issue:
+            anchor += timedelta(days=1)
+        # One fixed UTC issue time per day avoids inflating validation with
+        # highly overlapping hourly 24-hour target windows.
         while anchor + timedelta(hours=24) <= last + timedelta(hours=1):
             features = _features_at(pollutants, anchor)
             target, _ = aqi_for_window(pollutants, anchor + timedelta(hours=24))
@@ -214,7 +219,7 @@ def build_training_frame(records: list[dict]) -> pd.DataFrame:
                     **features,
                     "target_aqi_24h": target,
                 })
-            anchor += timedelta(hours=1)
+            anchor += timedelta(days=1)
     if not rows:
         return pd.DataFrame(columns=["station_id", "issued_at", *FEATURES, "target_aqi_24h"])
     return pd.DataFrame(rows).sort_values(["issued_at", "station_id"]).reset_index(drop=True)
@@ -263,12 +268,12 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
          for stamps in station_timestamps.values() if stamps),
         default=0,
     )
-    if len(frame) < 500 or len(stations) < 5:
+    if len(frame) < 500 or len(stations) < 50:
         report = {
             "status": "insufficient_data", "samples": int(len(frame)),
-            "stations": len(stations), "stations_with_14d_history": len(mature_stations),
+            "stations": len(stations), "stations_with_30d_history": len(mature_stations),
             "max_station_history_days": history_days,
-            "minimum_samples": 500, "minimum_stations": 5,
+            "minimum_samples": 500, "minimum_stations": 50,
             "minimum_history_days_per_station": MIN_HISTORY_DAYS,
             "reason": "Collect more real station-hour history before fitting a station model.",
             "forecast_enabled": False,
@@ -280,11 +285,22 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
 
     frame["issued_at"] = pd.to_datetime(frame["issued_at"], utc=True)
     split_time = frame["issued_at"].quantile(0.8)
-    temporal_train = frame[frame["issued_at"] < split_time]
+    # Purge the final 24h of training issue times so no training target window
+    # reaches into the chronological test period.
+    training_cutoff = split_time - timedelta(hours=24)
+    temporal_train = frame[frame["issued_at"] < training_cutoff]
     temporal_test = frame[frame["issued_at"] >= split_time]
     heldout_ids = set(stations[-max(1, int(math.ceil(len(stations) * 0.2))):])
-    station_train = frame[~frame["station_id"].isin(heldout_ids)]
-    station_test = frame[frame["station_id"].isin(heldout_ids)]
+    # The spatial holdout is also future-only: no later dates from training
+    # stations are available to the model when predicting held-out stations.
+    station_train = frame[
+        (~frame["station_id"].isin(heldout_ids))
+        & (frame["issued_at"] < training_cutoff)
+    ]
+    station_test = frame[
+        frame["station_id"].isin(heldout_ids)
+        & (frame["issued_at"] >= split_time)
+    ]
 
     if min(len(temporal_train), len(temporal_test), len(station_train), len(station_test)) < 50:
         report = {
