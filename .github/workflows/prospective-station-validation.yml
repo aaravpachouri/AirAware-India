@@ -84,6 +84,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          touch data/station_hourly_history.jsonl
           git add data/prospective_station_validation.jsonl data/prospective_station_cursor.json data/station_hourly_history.jsonl
           if git diff --cached --quiet; then
             echo "No new forecast or evaluation records."
