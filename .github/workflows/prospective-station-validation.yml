@@ -38,6 +38,14 @@ jobs:
             echo "::error::Add OPENAQ_API_KEY under Repository Settings > Secrets and variables > Actions."
             exit 1
           fi
+      - name: Restore compressed station-hour history
+        run: |
+          set -euo pipefail
+          if [ -f data/station_hourly_history.jsonl.gz ]; then
+            gzip -dc data/station_hourly_history.jsonl.gz > data/station_hourly_history.jsonl
+          elif [ ! -f data/station_hourly_history.jsonl ]; then
+            touch data/station_hourly_history.jsonl
+          fi
       - name: Collect forecasts and pair matured station observations
         env:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
@@ -88,8 +96,9 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          touch data/station_hourly_history.jsonl
-          git add data/prospective_station_validation.jsonl data/prospective_station_cursor.json data/station_hourly_history_cursor.json data/station_hourly_history.jsonl
+          gzip -9 -f data/station_hourly_history.jsonl
+          git add data/prospective_station_validation.jsonl data/prospective_station_cursor.json data/station_hourly_history_cursor.json data/station_hourly_history.jsonl.gz
+          git rm --cached -f data/station_hourly_history.jsonl 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No new forecast or evaluation records."
             exit 0
