@@ -201,17 +201,30 @@ CPCB_BREAKPOINTS = {
 
 
 
+# OpenAQ occasionally returns transient 5xx responses (including 500s).
+# Retry only idempotent GET requests, honour Retry-After, and let the final
+# response raise normally so upstream failures are never mistaken for data.
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 _session = requests.Session()
-
-
+_retry = Retry(
+    total=4,
+    connect=4,
+    read=4,
+    status=4,
+    backoff_factor=0.6,
+    status_forcelist=(429, 500, 502, 503, 504),
+    allowed_methods=frozenset({"GET"}),
+    respect_retry_after_header=True,
+    raise_on_status=False,
+)
+_adapter = HTTPAdapter(max_retries=_retry, pool_connections=20, pool_maxsize=20)
+_session.mount("https://", _adapter)
+_session.mount("http://", _adapter)
 
 if API_KEY:
-
-    _session.headers.update({
-
-        "X-API-Key": API_KEY
-
-    })
+    _session.headers.update({"X-API-Key": API_KEY})
 
 
 
