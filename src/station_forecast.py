@@ -247,17 +247,31 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
                        report_path: Path = REPORT_PATH) -> dict:
     """Train only when both chronological and station-held-out tests beat baselines."""
     frame = build_training_frame(records)
-    stations = sorted(frame["station_id"].unique().tolist()) if not frame.empty else []
-    history_days = 0
+    station_timestamps: dict[int, list[datetime]] = defaultdict(list)
+    for record in records:
+        try:
+            station_timestamps[int(record["station_id"])].append(_utc(record["timestamp"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    mature_stations = {
+        station_id for station_id, stamps in station_timestamps.items()
+        if stamps and (max(stamps) - min(stamps)).total_seconds() >= MIN_HISTORY_DAYS * 86400
+    }
     if not frame.empty:
-        issued = pd.to_datetime(frame["issued_at"], utc=True)
-        history_days = int((issued.max() - issued.min()).total_seconds() // 86400) + 1
-    if len(frame) < 500 or len(stations) < 5 or history_days < MIN_HISTORY_DAYS:
+        frame = frame[frame["station_id"].isin(mature_stations)].reset_index(drop=True)
+    stations = sorted(frame["station_id"].unique().tolist()) if not frame.empty else []
+    history_days = max(
+        (int((max(stamps) - min(stamps)).total_seconds() // 86400) + 1
+         for stamps in station_timestamps.values() if stamps),
+        default=0,
+    )
+    if len(frame) < 500 or len(stations) < 5:
         report = {
             "status": "insufficient_data", "samples": int(len(frame)),
-            "stations": len(stations), "history_days": history_days,
+            "stations": len(stations), "stations_with_14d_history": len(mature_stations),
+            "max_station_history_days": history_days,
             "minimum_samples": 500, "minimum_stations": 5,
-            "minimum_history_days": MIN_HISTORY_DAYS,
+            "minimum_history_days_per_station": MIN_HISTORY_DAYS,
             "reason": "Collect more real station-hour history before fitting a station model.",
             "forecast_enabled": False,
         }
