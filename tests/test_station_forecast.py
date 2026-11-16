@@ -10,7 +10,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from station_forecast import (
     BREAKPOINTS, FEATURES, aqi_for_window, build_training_frame,
-    hourly_station_series, train_and_validate,
+    hourly_station_series, read_history, train_and_validate,
 )
 
 
@@ -177,3 +177,19 @@ def test_prediction_merges_selected_station_live_history_without_cross_station_d
     assert result["available"] is True
     assert result["predicted_aqi"] == 115.0
     assert result["station_id"] == 42
+
+
+
+def test_read_history_supports_compressed_jsonl(tmp_path):
+    import gzip
+    path = tmp_path / "history.jsonl.gz"
+    row = {
+        "station_id": 42, "sensor_id": 7, "pollutant": "pm25",
+        "timestamp": "2026-11-16T10:00:00Z", "value": 12.5,
+    }
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        handle.write(json.dumps(row) + "\n")
+    records = read_history(path)
+    assert len(records) == 1
+    assert records[0]["station_id"] == 42
+    assert records[0]["value"] == 12.5
