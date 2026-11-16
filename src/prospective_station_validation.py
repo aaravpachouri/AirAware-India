@@ -23,6 +23,8 @@ MAX_AGE_HOURS = 6.0
 MIN_HORIZON_HOURS = 18.0
 MAX_HORIZON_HOURS = 30.0
 MIN_POLLUTANTS = 3
+HISTORY_MAX_STATIONS = max(0, min(int(os.getenv("AIR_AWARE_HISTORY_MAX_STATIONS", "10")), 50))
+HISTORY_PATH = ROOT / "data" / "station_hourly_history.jsonl"
 
 
 def as_utc(value: Any) -> datetime:
@@ -202,8 +204,13 @@ def run_collection(
     ledger_path: Path = LEDGER_PATH,
     cursor_path: Path = CURSOR_PATH,
 ) -> dict:
-    from live_air import get_available_locations, get_live_air_quality
+    from live_air import (
+        get_available_locations,
+        get_live_air_quality,
+        get_cpcb_averaged_air_quality,
+    )
     from live_forecast_features import build_live_forecast_features
+    from station_history import append_station_observations
 
     current_time = as_utc(now or datetime.now(timezone.utc))
     if not os.getenv("OPENAQ_API_KEY"):
@@ -220,6 +227,31 @@ def run_collection(
     snapshots: dict[int, dict] = {}
     data_by_id: dict[int, dict] = {}
     errors = []
+    history_errors = []
+    history_observations_seen = 0
+    history_records_added = 0
+    history_stations_checked = 0
+
+    # Build a real station-level hourly time series in small rotating batches.
+    # This is raw training evidence only; no model is trained from fabricated
+    # or city-level proxy rows.
+    for station in stations[:HISTORY_MAX_STATIONS]:
+        try:
+            hourly = get_cpcb_averaged_air_quality(int(station["id"]), station, now=current_time)
+            stored = append_station_observations(
+                station,
+                hourly.get("hourly_observations", []),
+                HISTORY_PATH,
+            )
+            history_observations_seen += stored["observations_seen"]
+            history_records_added += stored["records_added"]
+            history_stations_checked += 1
+        except Exception as exc:
+            history_errors.append({
+                "station_id": int(station["id"]),
+                "error": str(exc)[:200],
+            })
+
     for station in stations:
         station_id = int(station["id"])
         try:
@@ -269,6 +301,11 @@ def run_collection(
         "station_errors": errors,
         "stations_with_errors": len({item["station_id"] for item in errors}),
         "stations_without_eligible_snapshot": max(0, len(stations) - len(snapshots)),
+        "history_stations_checked": history_stations_checked,
+        "history_observations_seen": history_observations_seen,
+        "history_records_added": history_records_added,
+        "history_station_errors": history_errors,
+        "station_history": str(HISTORY_PATH),
         "ledger": str(ledger_path),
         "cursor": str(cursor_path),
     }
