@@ -1,0 +1,77 @@
+name: Station trend model training
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 2 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: station-trend-model
+  cancel-in-progress: false
+
+jobs:
+  train-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out station history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Build station dataset and validate against baselines
+        run: python src/station_forecast.py | tee station-model-result.json
+      - name: Add validation summary
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads(Path("station-model-result.json").read_text())
+          lines = [
+              "## Station-level 24-hour trend model",
+              "",
+              f"- Status: **{result.get('status')}**",
+              f"- Real training samples: **{result.get('samples', 0)}**",
+              f"- Stations represented: **{result.get('stations', 0)}**",
+              f"- Forecast gate enabled: **{result.get('forecast_enabled', False)}**",
+              "",
+              result.get("note", result.get("reason", "No model published.")),
+          ]
+          for key in ("temporal_holdout", "station_holdout"):
+              if key in result:
+                  lines += ["", f"### {key.replace('_', ' ').title()}",
+                            f"- Model MAE: {result[key]['model_mae']}",
+                            f"- Persistence MAE: {result[key]['persistence_mae']}",
+                            f"- 3-day mean MAE: {result[key]['three_day_mean_mae']}",
+                            f"- Improvement over best baseline: {result[key]['improvement_over_best_baseline_pct']}%"]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write("\\n".join(lines) + "\\n")
+          PY
+      - name: Commit validation report and approved model only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/station_model_validation.json
+          if [ -f models/airaware_station_trend.joblib ]; then
+            git add models/airaware_station_trend.joblib
+          else
+            git rm --cached -f models/airaware_station_trend.joblib 2>/dev/null || true
+          fi
+          if git diff --cached --quiet; then
+            echo "No station model/report changes."
+            exit 0
+          fi
+          git commit -m "Update validated station trend model"
+          git push origin HEAD:main
