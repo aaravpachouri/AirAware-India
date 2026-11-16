@@ -8,7 +8,6 @@ on:
       - fix/reproducible-aqi-validation
       - research/validation-integrity-phase-1
       - research/live-forecast-validation
-      - feat/station-level-trend-forecasting
     paths:
       - "app.py"
       - "src/**"
