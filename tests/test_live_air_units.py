@@ -40,3 +40,17 @@ def test_aqi_estimate_uses_highest_available_pollutant_subindex():
     result = estimate_cpcb_style_aqi({"pm25": 60, "pm10": 50, "no2": None})
     assert result["aqi"] == round(result["subindices"]["pm25"])
     assert result["aqi"] >= result["subindices"]["pm10"]
+
+
+def test_openaq_http_session_retries_transient_get_failures():
+    from live_air import _session
+
+    retry = _session.get_adapter("https://").max_retries
+    assert retry.total == 4
+    assert retry.connect == 4
+    assert retry.read == 4
+    assert retry.status == 4
+    assert retry.backoff_factor == pytest.approx(0.6)
+    assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist))
+    assert retry.allowed_methods == frozenset({"GET"})
+    assert retry.respect_retry_after_header is True
