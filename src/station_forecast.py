@@ -255,7 +255,7 @@ def train_and_validate(records: list[dict], *, model_path: Path = MODEL_PATH,
             continue
     mature_stations = {
         station_id for station_id, stamps in station_timestamps.items()
-        if stamps and (max(stamps) - min(stamps)).total_seconds() >= MIN_HISTORY_DAYS * 86400
+        if stamps and int((max(stamps) - min(stamps)).total_seconds() // 86400) + 1 >= MIN_HISTORY_DAYS
     }
     if not frame.empty:
         frame = frame[frame["station_id"].isin(mature_stations)].reset_index(drop=True)
