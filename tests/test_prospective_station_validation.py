@@ -146,3 +146,30 @@ def test_station_batch_handles_empty_inventory_and_cursor_round_trip(tmp_path):
     assert read_station_cursor(path) is None
     write_station_cursor(42, path)
     assert read_station_cursor(path) == 42
+
+
+
+def test_history_and_forecast_station_cursors_can_rotate_independently(tmp_path):
+    from prospective_station_validation import (
+        read_station_cursor, write_station_cursor, select_station_batch,
+    )
+
+    stations = [{"id": value} for value in range(1, 31)]
+    forecast_path = tmp_path / "forecast-cursor.json"
+    history_path = tmp_path / "history-cursor.json"
+
+    forecast_batch, forecast_next = select_station_batch(stations, 25, None)
+    history_batch, history_next = select_station_batch(stations, 10, None)
+    write_station_cursor(forecast_next, forecast_path)
+    write_station_cursor(history_next, history_path)
+
+    assert [row["id"] for row in forecast_batch] == list(range(1, 26))
+    assert [row["id"] for row in history_batch] == list(range(1, 11))
+    assert read_station_cursor(forecast_path) == 26
+    assert read_station_cursor(history_path) == 11
+
+    next_history_batch, next_history = select_station_batch(
+        stations, 10, read_station_cursor(history_path)
+    )
+    assert [row["id"] for row in next_history_batch] == list(range(11, 21))
+    assert next_history == 21
