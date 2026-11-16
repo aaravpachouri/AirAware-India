@@ -1697,7 +1697,11 @@ def get_cpcb_averaged_air_quality(
                     except (TypeError, ValueError, OverflowError):
                         continue
                     observations.setdefault(pollutant, []).append(
-                        {"timestamp": timestamp, "value": normalized}
+                        {
+                            "timestamp": timestamp,
+                            "value": normalized,
+                            "sensor_id": int(sensor_id),
+                        }
                     )
                     diagnostic["valid_records_parsed"] += 1
             except Exception as exc:
@@ -1713,6 +1717,16 @@ def get_cpcb_averaged_air_quality(
     )
     result["source"] = "OpenAQ hourly sensor averages"
     result["sensor_diagnostics"] = diagnostics
+    result["hourly_observations"] = [
+        {
+            "pollutant": pollutant,
+            "timestamp": item["timestamp"].astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "value": float(item["value"]),
+            "sensor_id": int(item["sensor_id"]),
+        }
+        for pollutant, values in observations.items()
+        for item in values
+    ]
     for pollutant, metadata in result["coverage"].items():
         diagnostic = diagnostics[pollutant]
         if diagnostic["sensor_count"] == 0:
