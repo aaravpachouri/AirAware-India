@@ -17,6 +17,15 @@ def _utc_iso(value: Any) -> str:
     return stamp.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _hour_key(value: Any) -> str:
+    stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc).replace(
+        minute=0, second=0, microsecond=0
+    ).isoformat().replace("+00:00", "Z")
+
+
 def append_station_observations(
     station: dict,
     observations: list[dict],
@@ -37,7 +46,7 @@ def append_station_observations(
                         int(record["station_id"]),
                         int(record["sensor_id"]),
                         str(record["pollutant"]),
-                        _utc_iso(record["timestamp"]),
+                        _hour_key(record["timestamp"]),
                     )
                 except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
                     raise ValueError(
@@ -60,9 +69,14 @@ def append_station_observations(
             continue
         if not math.isfinite(value) or value < 0:
             continue
-        key = (station_id, sensor_id, pollutant, timestamp)
+        key = (station_id, sensor_id, pollutant, _hour_key(timestamp))
         if key in existing:
-            continue
+            try:
+                existing_stamp = _utc_iso(existing[key]["timestamp"])
+            except (KeyError, TypeError, ValueError):
+                existing_stamp = ""
+            if timestamp <= existing_stamp:
+                continue
         existing[key] = {
             "schema_version": 1,
             "source": "OpenAQ v3 hourly sensor measurements",
