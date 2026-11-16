@@ -121,3 +121,13 @@ def test_future_observations_change_target_but_never_issue_time_features():
         else:
             assert left == right
     assert base_row["target_aqi_24h"] != altered_row["target_aqi_24h"]
+
+
+
+def test_training_issues_cover_four_six_hourly_times_per_day():
+    frame = build_training_frame(_synthetic_history(hours=240))
+    assert not frame.empty
+    hours = set(pd.to_datetime(frame["issued_at"], utc=True).dt.hour)
+    assert hours == {0, 6, 12, 18}
+    ordered = pd.to_datetime(frame["issued_at"], utc=True).drop_duplicates().sort_values()
+    assert set(ordered.diff().dropna().dt.total_seconds() / 3600) == {6.0}
