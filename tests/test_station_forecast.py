@@ -97,3 +97,27 @@ def test_invalid_or_nonfinite_observations_are_ignored():
     ])
     series = hourly_station_series(rows)
     assert all(math.isfinite(v) and v >= 0 for v in series[1]["pm25"].values())
+
+
+
+def test_future_observations_change_target_but_never_issue_time_features():
+    rows = _synthetic_history(hours=180)
+    baseline = build_training_frame(rows)
+    assert not baseline.empty
+    issue = baseline.iloc[0]["issued_at"]
+    changed = []
+    for row in rows:
+        copy = dict(row)
+        if datetime.fromisoformat(copy["timestamp"]) >= datetime.fromisoformat(issue):
+            copy["value"] = float(copy["value"]) * 3
+        changed.append(copy)
+    altered = build_training_frame(changed)
+    base_row = baseline[baseline["issued_at"] == issue].iloc[0]
+    altered_row = altered[altered["issued_at"] == issue].iloc[0]
+    for feature in FEATURES:
+        left, right = base_row[feature], altered_row[feature]
+        if math.isnan(float(left)):
+            assert math.isnan(float(right))
+        else:
+            assert left == right
+    assert base_row["target_aqi_24h"] != altered_row["target_aqi_24h"]
