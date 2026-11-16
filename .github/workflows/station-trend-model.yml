@@ -31,7 +31,9 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
       - name: Build station dataset and validate against baselines
-        run: python src/station_forecast.py | tee station-model-result.json
+        run: |
+          set -euo pipefail
+          python src/station_forecast.py | tee station-model-result.json
       - name: Add validation summary
         run: |
           python - <<'PY'
