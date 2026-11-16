@@ -44,7 +44,9 @@ jobs:
           AIR_AWARE_MAX_STATIONS: "25"
           AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
           AIR_AWARE_HISTORY_MAX_STATIONS: "10"
-        run: python src/prospective_station_validation.py | tee station-collection-result.json
+        run: |
+          set -euo pipefail
+          python src/prospective_station_validation.py | tee station-collection-result.json
       - name: Summarise prospective validation
         run: |
           set -euo pipefail
