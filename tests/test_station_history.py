@@ -49,3 +49,23 @@ def test_history_normalizes_timestamps_to_utc_and_preserves_distinct_sensors(tmp
     assert result["records_added"] == 2
     assert {row["timestamp"] for row in saved} == {"2026-11-16T10:00:00Z"}
     assert {row["sensor_id"] for row in saved} == {1, 2}
+
+
+def test_history_deduplicates_within_sensor_hour_and_keeps_latest_reading(tmp_path):
+    path = tmp_path / "history.jsonl"
+    station = {"id": 12}
+    first = [{
+        "pollutant": "pm25", "sensor_id": 101,
+        "timestamp": "2026-11-16T10:05:00Z", "value": 10,
+    }]
+    later = [{
+        "pollutant": "pm25", "sensor_id": 101,
+        "timestamp": "2026-11-16T10:55:00Z", "value": 30,
+    }]
+    assert append_station_observations(station, first, path)["records_added"] == 1
+    result = append_station_observations(station, later, path)
+    saved = [json.loads(line) for line in path.read_text().splitlines()]
+    assert result["records_total"] == 1
+    assert result["records_added"] == 1
+    assert saved[0]["timestamp"] == "2026-11-16T10:55:00Z"
+    assert saved[0]["value"] == 30
