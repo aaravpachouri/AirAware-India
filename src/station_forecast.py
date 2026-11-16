@@ -5,6 +5,7 @@ OpenAQ-derived CPCB-style research estimate, not an official CPCB reading.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import math
 from collections import defaultdict
@@ -21,7 +22,7 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.pipeline import Pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_HISTORY = ROOT / "data" / "station_hourly_history.jsonl"
+DEFAULT_HISTORY = ROOT / "data" / "station_hourly_history.jsonl.gz"
 MODEL_PATH = ROOT / "models" / "airaware_station_trend.joblib"
 REPORT_PATH = ROOT / "reports" / "station_model_validation.json"
 POLLUTANTS = ("pm25", "pm10", "no2", "so2", "co", "o3")
@@ -67,7 +68,8 @@ def read_history(path: Path = DEFAULT_HISTORY) -> list[dict]:
     if not path.exists():
         return []
     rows = []
-    with path.open(encoding="utf-8") as handle:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as handle:
         for line_no, line in enumerate(handle, 1):
             if not line.strip():
                 continue
