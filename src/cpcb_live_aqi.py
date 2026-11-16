@@ -55,7 +55,10 @@ def aggregate_hourly_observations(
     }
 
     for pollutant, period in AVERAGING_PERIOD_HOURS.items():
-        by_hour: dict[datetime, float] = {}
+        # Keep the latest reading per sensor in each UTC hour. When a station
+        # exposes multiple sensors for one pollutant, average those co-located
+        # sensor values instead of letting response order choose one sensor.
+        by_sensor_hour: dict[datetime, dict[str, tuple[datetime, float]]] = {}
         for item in observations.get(pollutant, []):
             try:
                 stamp = _utc_datetime(item["timestamp"])
@@ -64,12 +67,19 @@ def aggregate_hourly_observations(
                 continue
             if stamp < start or stamp > end or value < 0:
                 continue
-            # Use the hour-ending timestamp as the bucket; duplicate readings
-            # in one bucket are not counted as multiple coverage hours.
+            if value == float("inf") or value != value:
+                continue
             hour = stamp.replace(minute=0, second=0, microsecond=0)
-            if value != float("inf") and value == value:
-                by_hour[hour] = value
+            sensor_key = str(item.get("sensor_id", "unspecified"))
+            current = by_sensor_hour.setdefault(hour, {}).get(sensor_key)
+            if current is None or stamp >= current[0]:
+                by_sensor_hour[hour][sensor_key] = (stamp, value)
 
+        by_hour = {
+            hour: mean(value for _, value in sensor_values.values())
+            for hour, sensor_values in by_sensor_hour.items()
+            if sensor_values
+        }
         count = len(by_hour)
         coverage: dict[str, Any] = {
             "averaging_period": f"{period}h",
