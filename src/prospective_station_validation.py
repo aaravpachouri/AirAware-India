@@ -18,6 +18,7 @@ LEDGER_PATH = ROOT / "data" / "prospective_station_validation.jsonl"
 CURSOR_PATH = ROOT / "data" / "prospective_station_cursor.json"
 MODEL_PATH = ROOT / "models" / "airaware_live_rf.joblib"
 MAX_STATIONS = max(1, min(int(os.getenv("AIR_AWARE_MAX_STATIONS", "25")), 100))
+DISCOVERY_MAX_PAGES = max(1, min(int(os.getenv("AIR_AWARE_DISCOVERY_MAX_PAGES", "20")), 100))
 MAX_AGE_HOURS = 6.0
 MIN_HORIZON_HOURS = 18.0
 MAX_HORIZON_HOURS = 30.0
@@ -208,7 +209,7 @@ def run_collection(\n    now: datetime | None = None,\n    ledger_path: Path = L
     model_hash = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
     model = joblib.load(MODEL_PATH)
     records = read_ledger(ledger_path)
-    discovered_stations = get_available_locations(max_pages=20, max_age_days=2)
+    discovered_stations = get_available_locations(max_pages=DISCOVERY_MAX_PAGES, max_age_days=2)
     previous_cursor = read_station_cursor(cursor_path)
     stations, next_cursor = select_station_batch(discovered_stations, MAX_STATIONS, previous_cursor)
 
