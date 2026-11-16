@@ -385,6 +385,7 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
                              history_path: Path = DEFAULT_HISTORY,
                              model_path: Path = MODEL_PATH,
                              report_path: Path = REPORT_PATH,
+                             additional_observations: list[dict] | None = None,
                              max_data_age_hours: float = 6.0) -> dict:
     """Return a forecast only when the approved model and fresh station history exist."""
     report_path = Path(report_path)
@@ -398,8 +399,22 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
     if report.get("status") != "validated" or report.get("forecast_enabled") is not True:
         return {"available": False, "reason": "Station model has not passed both baseline gates."}
     records = read_history(history_path)
-    series_by_station = hourly_station_series(records)
     station_id = int(station_id)
+    # Merge the selected station's current 30-day OpenAQ response in memory.
+    # This refreshes the selected station without mixing data across stations
+    # or relying on the nationwide background cursor to have run recently.
+    for item in additional_observations or []:
+        try:
+            records.append({
+                "station_id": station_id,
+                "sensor_id": int(item["sensor_id"]),
+                "pollutant": str(item["pollutant"]).lower(),
+                "timestamp": item["timestamp"],
+                "value": float(item["value"]),
+            })
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+    series_by_station = hourly_station_series(records)
     series = series_by_station.get(station_id)
     if not series:
         return {"available": False, "reason": "No hourly history is available for this station."}
