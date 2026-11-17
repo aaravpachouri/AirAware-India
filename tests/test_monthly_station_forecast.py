@@ -139,7 +139,7 @@ def test_month_calendar_is_rendered_even_before_any_horizon_is_validated(tmp_pat
     now = datetime(2026, 11, 7, 12, tzinfo=timezone.utc)
     rows = history(42, now-timedelta(hours=240), 241)
     path = tmp_path/"history.jsonl"
-    path.write_text("".join(json.dumps(r)+"\\n" for r in rows), encoding="utf-8")
+    path.write_text("".join(json.dumps(r)+"\n" for r in rows), encoding="utf-8")
     result = monthly.predict_remaining_month(
         42, issued_at=now, timezone_name="Asia/Kolkata",
         history_path=path, model_path=tmp_path/"missing.joblib",
