@@ -252,15 +252,16 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                             timezone_name="Asia/Kolkata", history_path=None,
                             model_path=MODEL_PATH, report_path=REPORT_PATH,
                             additional_observations=None, max_data_age_hours=6.0):
-    """Show today's station estimate and validated direct forecasts through month-end."""
+    """Always return the remaining calendar dates; only validated horizons get values."""
     history_path = Path(history_path) if history_path else ROOT/"data"/"station_hourly_history.jsonl.gz"
     try:
         report = json.loads(Path(report_path).read_text(encoding="utf-8"))
         artifact = joblib.load(model_path)
+        if report.get("schema_version") != 1 or artifact.get("validation_status") != "validated":
+            report, artifact = {}, {}
     except Exception:
-        return {"available": False, "days": [], "reason": "No validated monthly model is published."}
-    if report.get("schema_version") != 1 or artifact.get("validation_status") != "validated":
-        return {"available": False, "days": [], "reason": "Monthly model failed validation/schema checks."}
+        report, artifact = {}, {}
+
     records = read_history(history_path)
     sid = int(station_id)
     for item in additional_observations or []:
@@ -270,53 +271,54 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                             "timestamp": item["timestamp"], "value": float(item["value"])})
         except (KeyError, TypeError, ValueError, OverflowError):
             continue
-    series = hourly_station_series(records).get(sid)
-    if not series:
-        return {"available": False, "days": [], "reason": "No hourly station history is available."}
+    series = hourly_station_series(records).get(sid, {})
     now = _utc(issued_at or datetime.now(timezone.utc))
     anchor = now.replace(minute=0, second=0, microsecond=0)
-    features = _features_at(series, anchor)
-    if features is None:
-        return {"available": False, "days": [], "reason": "Station lacks the 72-hour pollutant coverage requirement."}
+    features = _features_at(series, anchor) if series else None
+
     fresh = []
-    for pollutant in POLLUTANTS:
-        window = {h: v for h, v in series.get(pollutant, {}).items()
-                  if anchor-timedelta(hours=24) <= h < anchor}
-        if len(window) < 16:
-            continue
-        if pollutant in {"co", "o3"}:
-            ordered = sorted(window)
-            complete = any(
-                len(ordered[i:i+8]) == 8
-                and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
-                and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
-                for i in range(max(0, len(ordered)-7))
-            )
-            if not complete:
+    if features is not None:
+        for pollutant in POLLUTANTS:
+            window = {h: v for h, v in series.get(pollutant, {}).items()
+                      if anchor-timedelta(hours=24) <= h < anchor}
+            if len(window) < 16:
                 continue
-        fresh.append(pollutant)
-    if len(fresh) < 3 or not ({"pm25", "pm10"} & set(fresh)):
-        return {"available": False, "days": [],
-                "reason": "Fewer than three fresh pollutants, including PM2.5 or PM10, meet hourly coverage."}
-    fresh_hours = [h for p in fresh for h in series.get(p, {})
-                   if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
-    age = (anchor-max(fresh_hours)).total_seconds()/3600 if fresh_hours else float("inf")
-    if age < 0 or age > max_data_age_hours:
-        return {"available": False, "days": [], "reason": "Station data is stale.",
-                "data_age_hours": round(age, 2)}
+            if pollutant in {"co", "o3"}:
+                ordered = sorted(window)
+                complete = any(
+                    len(ordered[i:i+8]) == 8
+                    and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
+                    and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
+                    for i in range(max(0, len(ordered)-7))
+                )
+                if not complete:
+                    continue
+            fresh.append(pollutant)
+    recent = [h for p in fresh for h in series.get(p, {})
+              if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
+    age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
+    data_ready = (
+        features is not None and len(fresh) >= 3
+        and bool({"pm25", "pm10"} & set(fresh))
+        and 0 <= age <= max_data_age_hours
+    )
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
     month_end = (local_today.replace(day=28)+timedelta(days=4)).replace(day=1)-timedelta(days=1)
-    days = [{"date": local_today.isoformat(), "horizon_days": 0,
-             "aqi": round(float(features["aqi_current"]), 1), "lower_90": None,
-             "upper_90": None, "status": "current_estimate",
-             "category": _category(float(features["aqi_current"]))}]
+    current_value = float(features["aqi_current"]) if features is not None else None
+    days = [{
+        "date": local_today.isoformat(), "horizon_days": 0,
+        "aqi": round(current_value, 1) if current_value is not None else None,
+        "lower_90": None, "upper_90": None,
+        "status": "current_estimate" if current_value is not None else "current_unavailable",
+        "category": _category(current_value) if current_value is not None else "Unavailable",
+    }]
     cursor = local_today+timedelta(days=1)
     models = artifact.get("models", {})
     while cursor <= month_end:
         horizon = (cursor-local_today).days
         info = models.get(horizon) or models.get(str(horizon))
         gate = report.get("horizons", {}).get(str(horizon), {})
-        if info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
+        if data_ready and info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
             try:
                 value = float(info["model"].predict(pd.DataFrame([features], columns=FEATURES))[0])
                 if not math.isfinite(value):
@@ -331,16 +333,22 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
         else:
+            reason = (
+                "Fresh station-hour coverage is not sufficient."
+                if not data_ready else gate.get("status", "No validated model for this horizon.")
+            )
             days.append({"date": cursor.isoformat(), "horizon_days": horizon,
-                         "aqi": None, "status": "unvalidated",
-                         "reason": gate.get("status", "No validated model for this horizon.")})
+                         "aqi": None, "status": "unvalidated", "reason": reason})
         cursor += timedelta(days=1)
-    return {"available": True, "station_id": sid, "issued_at": anchor.isoformat(),
-            "timezone": timezone_name, "data_age_hours": round(age, 2),
-            "validated_horizons_days": report.get("validated_horizons_days", []),
-            "days": days,
-            "basis": "OpenAQ-derived station-hour research estimates; not official CPCB AQI."}
-
+    return {
+        "available": True, "station_id": sid, "issued_at": anchor.isoformat(),
+        "timezone": timezone_name, "data_age_hours": round(age, 2) if math.isfinite(age) else None,
+        "data_ready": data_ready,
+        "validated_horizons_days": report.get("validated_horizons_days", []),
+        "days": days,
+        "reason": None if data_ready else "Current station history has not met the freshness and pollutant coverage gates.",
+        "basis": "OpenAQ-derived station-hour research estimates; not official CPCB AQI.",
+    }
 
 def main():
     records = read_history()
