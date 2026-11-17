@@ -242,7 +242,7 @@ def update_forecast_ledger(records, artifact, *, ledger_path=LEDGER_PATH, now=No
             "absolute_error": round(abs(float(actual)-float(forecast["predicted_aqi"])), 2),
             "verified_at": anchor.isoformat(),
         }
-        scored += int(_append_event(path, event))
+        scored += int(_append_event(path, event, existing_ids))
     return {"forecast_events_added": added, "verification_events_added": scored}
 
 
