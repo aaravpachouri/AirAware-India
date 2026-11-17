@@ -1,4 +1,4 @@
-name: XKDR historical ingestion tests
+name: XKDR historical ingestion tests and pilot
 
 on:
   pull_request:
@@ -15,6 +15,17 @@ on:
       - "requirements.txt"
       - ".github/workflows/xkdr-historical-ingestion.yml"
   workflow_dispatch:
+    inputs:
+      start_month:
+        description: "First month to ingest (YYYY-MM)"
+        required: true
+        default: "2024-01"
+        type: string
+      end_month:
+        description: "Last month to ingest (YYYY-MM)"
+        required: true
+        default: "2024-01"
+        type: string
 
 permissions:
   contents: read
@@ -22,7 +33,7 @@ permissions:
 jobs:
   ingestion-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,3 +49,22 @@ jobs:
         run: python -m compileall -q scripts/ingest_xkdr_historical.py
       - name: Run ingestion unit tests
         run: python -m pytest -q tests/test_xkdr_historical_ingestion.py
+      - name: Run selected XKDR CPCB ingestion pilot
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          XKDR_API_KEY: ${{ secrets.XKDR_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$XKDR_API_KEY" || { echo "XKDR_API_KEY GitHub Actions secret is missing."; exit 1; }
+          python scripts/ingest_xkdr_historical.py \
+            --start "${{ inputs.start_month }}" \
+            --end "${{ inputs.end_month }}"
+      - name: Upload isolated XKDR pilot dataset and manifest
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: airaware-xkdr-cpcb-${{ inputs.start_month }}-${{ inputs.end_month }}
+          path: |
+            data/xkdr_cpcb/**
+          if-no-files-found: error
+          retention-days: 30
