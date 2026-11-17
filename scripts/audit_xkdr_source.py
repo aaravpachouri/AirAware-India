@@ -43,18 +43,25 @@ def main():
     stations = rows_from(stations_payload)
     if not stations:
         raise RuntimeError("XKDR station registry returned no parseable station rows.")
-    station = stations[0]
+    # Select a station with a published last_seen timestamp, then sample a
+    # short window inside that station's actual coverage (not today's date).
+    station = next((row for row in stations if row.get("last_seen")), stations[0])
     station_id = station.get("station_id") or station.get("id")
     if not station_id:
         raise RuntimeError("XKDR station registry row has no station_id/id.")
-    end = datetime.now(timezone.utc).date()
-    start = end - timedelta(days=6)
+    last_seen = station.get("last_seen")
+    try:
+        coverage_end = datetime.fromisoformat(str(last_seen).replace("Z", "+00:00")).date()
+    except (TypeError, ValueError):
+        coverage_end = datetime(2024, 12, 31).date()
+    end = coverage_end
+    start = end - timedelta(days=1)
     measurements, headers = request_json(session, "/v1/measurements", {
         "station": station_id,
         "parameter": ["PM2.5", "PM10"],
         "start": start.isoformat(),
         "end": end.isoformat(),
-        "agg": "hourly",
+        "agg": "daily",
         "format": "json",
         "limit": 1000,
     })
@@ -81,7 +88,7 @@ def main():
             "start_ist_date": start.isoformat(),
             "end_ist_date": end.isoformat(),
             "parameters": ["PM2.5", "PM10"],
-            "aggregation": "hourly",
+            "aggregation": "daily",
             "rows_returned": len(sample_rows),
             "row_count_header": headers.get("X-Row-Count"),
             "truncated_header": headers.get("X-Truncated"),
