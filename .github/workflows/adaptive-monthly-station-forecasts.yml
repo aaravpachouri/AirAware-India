@@ -1,0 +1,85 @@
+name: Adaptive monthly station forecasts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: adaptive-monthly-station-forecasts
+  cancel-in-progress: false
+
+jobs:
+  train-score-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out station observations and prior forecast ledger
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Train direct horizons and score matured forecasts
+        run: |
+          set -euo pipefail
+          python src/monthly_station_forecast.py | tee monthly-station-result.json
+      - name: Add model readiness and horizon metrics to run summary
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads(Path("monthly-station-result.json").read_text())
+          report = result["report"]
+          lines = [
+              "## Adaptive monthly station forecasts",
+              "",
+              f"- Model status: **{report.get('status')}**",
+              f"- Stations with history: **{report.get('stations_with_history', 0)}**",
+              f"- Independently validated horizons: **{report.get('validated_horizons_days', [])}**",
+              f"- Forecast events added: **{result.get('ledger', {}).get('forecast_events_added', 0)}**",
+              f"- Matured forecast evaluations added: **{result.get('ledger', {}).get('verification_events_added', 0)}**",
+              "",
+              "Only horizons passing chronological and held-out-station tests against persistence and 3-day mean baselines are published.",
+              "OpenAQ-derived research estimates; not official CPCB forecasts.",
+          ]
+          for horizon, item in report.get("horizons", {}).items():
+              lines += ["", f"### {horizon}-day horizon",
+                        f"- Status: {item.get('status')}",
+                        f"- Samples / stations: {item.get('samples')} / {item.get('stations')}"]
+              for split in ("temporal_holdout", "station_holdout"):
+                  if split in item:
+                      metrics = item[split]
+                      lines += [f"- {split}: model MAE {metrics['model_mae']}; "
+                                f"persistence {metrics['persistence_mae']}; "
+                                f"3-day mean {metrics['three_day_mean_mae']}"]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\\n".join(lines) + "\\n")
+          PY
+      - name: Commit monthly model, validation report, and append-only forecast ledger
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/monthly_station_validation.json data/monthly_station_forecast_ledger.jsonl
+          if [ -f models/airaware_monthly_station.joblib ]; then
+            git add models/airaware_monthly_station.joblib
+          else
+            git rm --cached -f models/airaware_monthly_station.joblib 2>/dev/null || true
+          fi
+          if git diff --cached --quiet; then
+            echo "No monthly model, report, or ledger changes."
+            exit 0
+          fi
+          git commit -m "Update adaptive monthly station forecasts and verification ledger"
+          git push origin HEAD:main
