@@ -25,7 +25,7 @@ MIN_HORIZON_HOURS = 18.0
 MAX_HORIZON_HOURS = 30.0
 MIN_POLLUTANTS = 3
 HISTORY_MAX_STATIONS = max(0, min(int(os.getenv("AIR_AWARE_HISTORY_MAX_STATIONS", "10")), 50))
-HISTORY_LOOKBACK_DAYS = max(3, min(int(os.getenv("AIR_AWARE_HISTORY_LOOKBACK_DAYS", "30")), 30))
+HISTORY_LOOKBACK_DAYS = max(3, min(int(os.getenv("AIR_AWARE_HISTORY_LOOKBACK_DAYS", "40")), 40))
 HISTORY_PATH = ROOT / "data" / "station_hourly_history.jsonl"
 
 

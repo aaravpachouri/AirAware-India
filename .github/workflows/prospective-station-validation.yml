@@ -51,8 +51,8 @@ jobs:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
           AIR_AWARE_MAX_STATIONS: "25"
           AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
-          AIR_AWARE_HISTORY_MAX_STATIONS: "10"
-          AIR_AWARE_HISTORY_LOOKBACK_DAYS: "30"
+          AIR_AWARE_HISTORY_MAX_STATIONS: "15"
+          AIR_AWARE_HISTORY_LOOKBACK_DAYS: "40"
         run: |
           set -euo pipefail
           python src/prospective_station_validation.py | tee station-collection-result.json
