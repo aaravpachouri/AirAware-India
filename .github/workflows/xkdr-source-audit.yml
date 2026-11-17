@@ -1,0 +1,39 @@
+name: XKDR historical source audit
+
+on:
+  push:
+    branches:
+      - feat/xkdr-historical-source-audit
+    paths:
+      - "scripts/audit_xkdr_source.py"
+      - ".github/workflows/xkdr-source-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install HTTP client
+        run: python -m pip install requests==2.34.2
+      - name: Verify XKDR credentials and historical source access
+        env:
+          XKDR_API_KEY: ${{ secrets.XKDR_API_KEY }}
+        run: python scripts/audit_xkdr_source.py
+      - name: Upload source audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xkdr-source-audit-${{ github.run_id }}
+          path: reports/xkdr_source_audit.json
+          if-no-files-found: ignore
+          retention-days: 30
