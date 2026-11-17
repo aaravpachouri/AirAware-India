@@ -175,7 +175,7 @@ def _append_event(path: Path, event: dict, existing_ids: set[str]) -> bool:
     if event_id in existing_ids:
         return False
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":"))+"\\n")
+        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":"))+"\n")
     existing_ids.add(event_id)
     return True
 
