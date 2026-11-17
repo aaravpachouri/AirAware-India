@@ -31,6 +31,7 @@ def test_horizon_frame_uses_future_window_as_target_only():
     assert not baseline.empty
     assert set(FEATURES).issubset(baseline.columns)
     assert (baseline["target_aqi"] >= 0).all()
+    assert set(pd.to_datetime(baseline["issued_at"], utc=True).dt.hour) == set(range(24))
     first = baseline.iloc[0]
     issue = pd.Timestamp(first.issued_at)
     altered = []
