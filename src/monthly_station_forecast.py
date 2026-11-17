@@ -169,18 +169,14 @@ def train_monthly_models(records: list[dict], *, model_path=MODEL_PATH,
     return report
 
 
-def _append_event(path: Path, event: dict) -> bool:
+def _append_event(path: Path, event: dict, existing_ids: set[str]) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        with path.open(encoding="utf-8") as handle:
-            for line in handle:
-                try:
-                    if json.loads(line).get("event_id") == event["event_id"]:
-                        return False
-                except (json.JSONDecodeError, TypeError):
-                    continue
+    event_id = event["event_id"]
+    if event_id in existing_ids:
+        return False
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":"))+"\n")
+        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":"))+"\\n")
+    existing_ids.add(event_id)
     return True
 
 
@@ -190,6 +186,14 @@ def update_forecast_ledger(records, artifact, *, ledger_path=LEDGER_PATH, now=No
     anchor = _utc(now or datetime.now(timezone.utc)).replace(minute=0, second=0, microsecond=0)
     added = scored = 0
     path = Path(ledger_path)
+    existing_ids: set[str] = set()
+    if path.exists():
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    existing_ids.add(str(json.loads(line).get("event_id", "")))
+                except (json.JSONDecodeError, TypeError):
+                    continue
     for station_id, series in series_map.items():
         features = _features_at(series, anchor)
         if features is None:
@@ -213,7 +217,7 @@ def update_forecast_ledger(records, artifact, *, ledger_path=LEDGER_PATH, now=No
                 "upper_90": round(min(500, prediction+residual), 2),
                 "model_version": artifact.get("trained_at"), "source": "OpenAQ v3",
             }
-            added += int(_append_event(path, event))
+            added += int(_append_event(path, event, existing_ids))
     if not path.exists():
         return {"forecast_events_added": added, "verification_events_added": 0}
     events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
