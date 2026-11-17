@@ -3820,7 +3820,8 @@ if page == "Latest Air":
     st.caption(
         "Each date is scored by its own direct forecast horizon using the latest "
         "station history. The outlook refreshes as new observations arrive; it does "
-        "not roll yesterday's prediction forward. Unvalidated horizons are shown honestly."
+        "not roll yesterday's prediction forward. P90 bands summarize held-out historical "
+        "errors; unvalidated horizons are shown honestly."
     )
     if monthly_outlook.get("available"):
         monthly_rows = []
@@ -3839,7 +3840,7 @@ if page == "Latest Air":
             monthly_rows.append({
                 "Date": day.get("date"),
                 "AQI": "—" if value is None else round(float(value)),
-                "90% error band": band,
+                "P90 historical error band": band,
                 "Category": day.get("category", "—"),
                 "Status": status,
             })
