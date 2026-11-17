@@ -31,7 +31,7 @@ PARAMETERS = {
 # XKDR says units are harmonised in spelling only. These are labels, not
 # conversions: concentrations are never silently converted between units.
 KNOWN_UNITS = {"µg/m³", "ug/m3", "μg/m³", "mg/m³", "mg/m3", "ppb", "ppm"}
-IDENTIFIER = re.compile(r"^v1/measurements/year=(20\\d{2})/month=(0[1-9]|1[0-2])/data\\.parquet$")
+IDENTIFIER = re.compile(r"^v1/measurements/year=(20\d{2})/month=(0[1-9]|1[0-2])/data\.parquet$")
 
 
 def parse_month(value: str) -> tuple[int, int]:
