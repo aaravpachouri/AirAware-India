@@ -271,9 +271,29 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     features = _features_at(series, anchor)
     if features is None:
         return {"available": False, "days": [], "reason": "Station lacks the 72-hour pollutant coverage requirement."}
-    recent = [h for p in POLLUTANTS for h in series.get(p, {})
-              if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
-    age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
+    fresh = []
+    for pollutant in POLLUTANTS:
+        window = {h: v for h, v in series.get(pollutant, {}).items()
+                  if anchor-timedelta(hours=24) <= h < anchor}
+        if len(window) < 16:
+            continue
+        if pollutant in {"co", "o3"}:
+            ordered = sorted(window)
+            complete = any(
+                len(ordered[i:i+8]) == 8
+                and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
+                and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
+                for i in range(max(0, len(ordered)-7))
+            )
+            if not complete:
+                continue
+        fresh.append(pollutant)
+    if len(fresh) < 3 or not ({"pm25", "pm10"} & set(fresh)):
+        return {"available": False, "days": [],
+                "reason": "Fewer than three fresh pollutants, including PM2.5 or PM10, meet hourly coverage."}
+    fresh_hours = [h for p in fresh for h in series.get(p, {})
+                   if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
+    age = (anchor-max(fresh_hours)).total_seconds()/3600 if fresh_hours else float("inf")
     if age < 0 or age > max_data_age_hours:
         return {"available": False, "days": [], "reason": "Station data is stale.",
                 "data_age_hours": round(age, 2)}
@@ -317,10 +337,20 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
 
 def main():
     records = read_history()
-    report = train_monthly_models(records)
     ledger = {"forecast_events_added": 0, "verification_events_added": 0}
+    # Score forecasts issued by a previous model before retraining can retire it.
+    if MODEL_PATH.exists():
+        try:
+            ledger = update_forecast_ledger(records, joblib.load(MODEL_PATH))
+        except Exception:
+            pass
+    report = train_monthly_models(records)
     if report.get("validated_horizons_days"):
-        ledger = update_forecast_ledger(records, joblib.load(MODEL_PATH))
+        fresh_ledger = update_forecast_ledger(records, joblib.load(MODEL_PATH))
+        ledger = {
+            "forecast_events_added": ledger["forecast_events_added"] + fresh_ledger["forecast_events_added"],
+            "verification_events_added": ledger["verification_events_added"] + fresh_ledger["verification_events_added"],
+        }
     print(json.dumps({"report": report, "ledger": ledger}, indent=2, sort_keys=True))
 
 
