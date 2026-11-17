@@ -1559,7 +1559,7 @@ def get_cpcb_averaged_air_quality(
     # The optional longer window is used by the rotating training-history
     # collector. The returned AQI coverage assessment remains a rolling 24h
     # assessment; only the raw hourly_observations list spans history_days.
-    history_days = max(1, min(int(history_days), 30))
+    history_days = max(1, min(int(history_days), 40))
     start = end - timedelta(days=history_days)
 
     observations: dict[str, list[dict[str, Any]]] = {}
