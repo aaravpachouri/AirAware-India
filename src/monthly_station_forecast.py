@@ -46,15 +46,17 @@ def build_horizon_frame(records: list[dict], horizon_days: int) -> pd.DataFrame:
         hours = sorted({h for values in series.values() for h in values})
         if not hours:
             continue
-        anchor = hours[0].replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        anchor = min(hours).replace(minute=0, second=0, microsecond=0) + timedelta(hours=72)
         last = max(hours)
+        # Hourly issue times support any time-of-day inference. Validation below
+        # samples one fixed UTC hour per station/day to avoid overlapping targets.
         while anchor + timedelta(days=horizon_days) <= last + timedelta(hours=1):
             features = _features_at(series, anchor)
             target, _ = aqi_for_window(series, anchor + timedelta(days=horizon_days))
             if features is not None and target is not None:
                 rows.append({"station_id": station_id, "issued_at": anchor.isoformat(),
                              **features, "target_aqi": float(target)})
-            anchor += timedelta(days=1)
+            anchor += timedelta(hours=1)
     columns = ["station_id", "issued_at", *FEATURES, "target_aqi"]
     return pd.DataFrame(rows, columns=columns).sort_values(
         ["issued_at", "station_id"]
@@ -112,10 +114,15 @@ def train_monthly_models(records: list[dict], *, model_path=MODEL_PATH,
             continue
         split = frame.issued_at.quantile(.8)
         cutoff = split - timedelta(days=horizon+1)
-        temporal_train, temporal_test = frame[frame.issued_at < cutoff], frame[frame.issued_at >= split]
+        temporal_train, temporal_test_all = frame[frame.issued_at < cutoff], frame[frame.issued_at >= split]
         held_ids = set(station_ids[-max(1, int(math.ceil(len(station_ids)*.2))):])
         spatial_train = frame[(~frame.station_id.isin(held_ids)) & (frame.issued_at < cutoff)]
-        spatial_test = frame[frame.station_id.isin(held_ids) & (frame.issued_at >= split)]
+        spatial_test_all = frame[frame.station_id.isin(held_ids) & (frame.issued_at >= split)]
+        # One fixed UTC hour per station/day gives non-overlapping target windows.
+        temporal_hours = (temporal_test_all.station_id.astype(int) % 4) * 6
+        spatial_hours = (spatial_test_all.station_id.astype(int) % 4) * 6
+        temporal_test = temporal_test_all[temporal_test_all.issued_at.dt.hour == temporal_hours]
+        spatial_test = spatial_test_all[spatial_test_all.issued_at.dt.hour == spatial_hours]
         if min(len(temporal_train), len(temporal_test), len(spatial_train), len(spatial_test)) < 20:
             horizon_reports[str(horizon)] = {**base, "status": "insufficient_validation_data",
                                               "forecast_enabled": False}
