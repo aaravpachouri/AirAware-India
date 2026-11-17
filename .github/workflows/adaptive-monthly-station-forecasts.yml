@@ -30,6 +30,8 @@ jobs:
           cache-dependency-path: requirements.txt
       - name: Install runtime dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: Ensure append-only forecast ledger exists
+        run: mkdir -p data reports models && touch data/monthly_station_forecast_ledger.jsonl
       - name: Train direct horizons and score matured forecasts
         run: |
           set -euo pipefail
