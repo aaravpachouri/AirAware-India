@@ -55,6 +55,7 @@ from live_air import (
 
 from live_forecast_features import build_live_forecast_features
 from station_forecast import predict_station_forecast
+from monthly_station_forecast import predict_remaining_month
 
 
 
@@ -3735,6 +3736,21 @@ if page == "Latest Air":
         if station_forecast.get("available") else None
     )
 
+    # Direct multi-horizon forecasts are independent of the 24-hour model.
+    # Unvalidated dates remain visible as such; no recursive/fabricated values.
+    monthly_outlook = {"available": False, "days": [], "reason": "Monthly model is still accumulating validated station history."}
+    try:
+        monthly_outlook = predict_remaining_month(
+            int(selected_location["id"]),
+            additional_observations=(
+                hourly_result.get("coverage", {}).get("hourly_observations", [])
+                if hourly_result else []
+            ),
+        )
+    except Exception as monthly_error:
+        monthly_outlook = {"available": False, "days": [], "reason": str(monthly_error)[:180]}
+
+
 
     hero_category = (
 
@@ -3798,6 +3814,46 @@ if page == "Latest Air":
             "Tomorrow's forecast is unavailable for this station. "
             + str(station_forecast.get("reason") or
                   "More station-specific hourly history is needed before a reliable forecast can be published.")
+        )
+
+    st.markdown("### Adaptive monthly AQI outlook")
+    st.caption(
+        "Each date is scored by its own direct forecast horizon using the latest "
+        "station history. The outlook refreshes as new observations arrive; it does "
+        "not roll yesterday's prediction forward. Unvalidated horizons are shown honestly."
+    )
+    if monthly_outlook.get("available"):
+        monthly_rows = []
+        for day in monthly_outlook.get("days", []):
+            value = day.get("aqi")
+            band = (
+                f"{day.get('lower_90')}–{day.get('upper_90')}"
+                if day.get("lower_90") is not None else "—"
+            )
+            status = (
+                "Current station estimate" if day.get("status") == "current_estimate"
+                else "Validated forecast" if day.get("status") == "validated_forecast"
+                else "Not validated yet" if day.get("status") == "unvalidated"
+                else "Unavailable"
+            )
+            monthly_rows.append({
+                "Date": day.get("date"),
+                "AQI": "—" if value is None else round(float(value)),
+                "90% error band": band,
+                "Category": day.get("category", "—"),
+                "Status": status,
+            })
+        st.dataframe(monthly_rows, hide_index=True, use_container_width=True)
+        st.caption(
+            f"Validated horizons: {monthly_outlook.get('validated_horizons_days', [])} · "
+            f"Station data age: {monthly_outlook.get('data_age_hours')} hours · "
+            "OpenAQ-derived research estimates, not official CPCB forecasts."
+        )
+    else:
+        st.info(
+            "The monthly model is collecting station-hour history and validating "
+            "each forecast horizon. No unsupported monthly values are displayed. "
+            + str(monthly_outlook.get("reason", ""))
         )
 
 
