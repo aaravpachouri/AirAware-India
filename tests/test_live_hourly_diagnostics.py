@@ -111,3 +111,27 @@ def test_station_history_backfill_requests_14_days_and_preserves_raw_hourly_rows
     assert len(result["hourly_observations"]) == 17
     assert any(row["timestamp"] == (now - timedelta(days=10)).isoformat().replace("+00:00", "Z")
                for row in result["hourly_observations"])
+
+
+
+def test_station_history_backfill_supports_40_days_for_30_day_forecast_training(monkeypatch):
+    now = datetime(2026, 11, 16, 12, tzinfo=timezone.utc)
+    full_location = {
+        "name": "Long-history test station",
+        "sensors": [
+            {"id": 401, "parameter": {"name": "pm2.5", "units": "µg/m³"}}
+        ],
+    }
+    captured = {}
+    monkeypatch.setattr(live_air, "get_location", lambda location_id: full_location)
+
+    def fake_get(endpoint, params=None):
+        captured.update(params or {})
+        return {"results": []}
+
+    monkeypatch.setattr(live_air, "_get", fake_get)
+    live_air.get_cpcb_averaged_air_quality(100, now=now, history_days=40)
+
+    assert captured["limit"] == 1000
+    assert captured["datetime_from"] == (now - timedelta(days=40)).isoformat()
+    assert captured["datetime_to"] == now.isoformat()
