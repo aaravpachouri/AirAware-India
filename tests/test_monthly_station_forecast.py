@@ -120,7 +120,14 @@ def test_forecast_ledger_is_append_only_and_scores_only_matured_targets(tmp_path
     again = monthly.update_forecast_ledger(rows, artifact, ledger_path=ledger, now=issued)
     assert first["forecast_events_added"] == 1
     assert again["forecast_events_added"] == 0
+    matured = monthly.update_forecast_ledger(
+        rows, artifact, ledger_path=ledger, now=issued+timedelta(days=2)
+    )
+    assert matured["verification_events_added"] == 1
     events = [json.loads(line) for line in ledger.read_text().splitlines()]
-    assert events[0]["event_type"] == "forecast"
-    assert events[0]["horizon_days"] == 1
-    assert events[0]["input_data_cutoff"] == issued.isoformat()
+    forecast = next(event for event in events if event["event_type"] == "forecast")
+    verification = next(event for event in events if event["event_type"] == "verification")
+    assert forecast["horizon_days"] == 1
+    assert forecast["input_data_cutoff"] == issued.isoformat()
+    assert verification["forecast_event_id"] == forecast["event_id"]
+    assert verification["absolute_error"] >= 0
