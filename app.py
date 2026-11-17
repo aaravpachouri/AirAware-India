@@ -3725,7 +3725,7 @@ if page == "Latest Air":
             station_forecast = predict_station_forecast(
                 int(selected_location["id"]),
                 additional_observations=(
-                    hourly_result.get("coverage", {}).get("hourly_observations", [])
+                    hourly_result.get("hourly_observations", [])
                     if hourly_result else []
                 ),
             )
@@ -3743,7 +3743,7 @@ if page == "Latest Air":
         monthly_outlook = predict_remaining_month(
             int(selected_location["id"]),
             additional_observations=(
-                hourly_result.get("coverage", {}).get("hourly_observations", [])
+                hourly_result.get("hourly_observations", [])
                 if hourly_result else []
             ),
         )
