@@ -1,0 +1,312 @@
+{
+  "horizons": {
+    "1": {
+      "forecast_enabled": false,
+      "horizon_days": 1,
+      "minimum_history_days_per_station": 4,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 18953,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "10": {
+      "forecast_enabled": false,
+      "horizon_days": 10,
+      "minimum_history_days_per_station": 13,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 9825,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "11": {
+      "forecast_enabled": false,
+      "horizon_days": 11,
+      "minimum_history_days_per_station": 14,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 8795,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "12": {
+      "forecast_enabled": false,
+      "horizon_days": 12,
+      "minimum_history_days_per_station": 15,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 8025,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "13": {
+      "forecast_enabled": false,
+      "horizon_days": 13,
+      "minimum_history_days_per_station": 16,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 8515,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "14": {
+      "forecast_enabled": false,
+      "horizon_days": 14,
+      "minimum_history_days_per_station": 17,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 9586,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "15": {
+      "forecast_enabled": false,
+      "horizon_days": 15,
+      "minimum_history_days_per_station": 18,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 9500,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "16": {
+      "forecast_enabled": false,
+      "horizon_days": 16,
+      "minimum_history_days_per_station": 19,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 8877,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "17": {
+      "forecast_enabled": false,
+      "horizon_days": 17,
+      "minimum_history_days_per_station": 20,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 7519,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "18": {
+      "forecast_enabled": false,
+      "horizon_days": 18,
+      "minimum_history_days_per_station": 21,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6628,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "19": {
+      "forecast_enabled": false,
+      "horizon_days": 19,
+      "minimum_history_days_per_station": 22,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6075,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "2": {
+      "forecast_enabled": false,
+      "horizon_days": 2,
+      "minimum_history_days_per_station": 5,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 16660,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "20": {
+      "forecast_enabled": false,
+      "horizon_days": 20,
+      "minimum_history_days_per_station": 23,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 5934,
+      "stations": 47,
+      "status": "insufficient_data"
+    },
+    "21": {
+      "forecast_enabled": false,
+      "horizon_days": 21,
+      "minimum_history_days_per_station": 24,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 5990,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "22": {
+      "forecast_enabled": false,
+      "horizon_days": 22,
+      "minimum_history_days_per_station": 25,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6028,
+      "stations": 48,
+      "status": "insufficient_data"
+    },
+    "23": {
+      "forecast_enabled": false,
+      "horizon_days": 23,
+      "minimum_history_days_per_station": 26,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6249,
+      "stations": 46,
+      "status": "insufficient_data"
+    },
+    "24": {
+      "forecast_enabled": false,
+      "horizon_days": 24,
+      "minimum_history_days_per_station": 27,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6541,
+      "stations": 47,
+      "status": "insufficient_data"
+    },
+    "25": {
+      "forecast_enabled": false,
+      "horizon_days": 25,
+      "minimum_history_days_per_station": 28,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 6177,
+      "stations": 45,
+      "status": "insufficient_data"
+    },
+    "26": {
+      "forecast_enabled": false,
+      "horizon_days": 26,
+      "minimum_history_days_per_station": 29,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 5358,
+      "stations": 45,
+      "status": "insufficient_data"
+    },
+    "27": {
+      "forecast_enabled": false,
+      "horizon_days": 27,
+      "minimum_history_days_per_station": 30,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 4608,
+      "stations": 29,
+      "status": "insufficient_data"
+    },
+    "28": {
+      "forecast_enabled": false,
+      "horizon_days": 28,
+      "minimum_history_days_per_station": 31,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 4259,
+      "stations": 29,
+      "status": "insufficient_data"
+    },
+    "29": {
+      "forecast_enabled": false,
+      "horizon_days": 29,
+      "minimum_history_days_per_station": 32,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 4072,
+      "stations": 29,
+      "status": "insufficient_data"
+    },
+    "3": {
+      "forecast_enabled": false,
+      "horizon_days": 3,
+      "minimum_history_days_per_station": 6,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 15135,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "30": {
+      "forecast_enabled": false,
+      "horizon_days": 30,
+      "minimum_history_days_per_station": 33,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 3891,
+      "stations": 29,
+      "status": "insufficient_data"
+    },
+    "4": {
+      "forecast_enabled": false,
+      "horizon_days": 4,
+      "minimum_history_days_per_station": 7,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 14167,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "5": {
+      "forecast_enabled": false,
+      "horizon_days": 5,
+      "minimum_history_days_per_station": 8,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 13998,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "6": {
+      "forecast_enabled": false,
+      "horizon_days": 6,
+      "minimum_history_days_per_station": 9,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 14436,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "7": {
+      "forecast_enabled": false,
+      "horizon_days": 7,
+      "minimum_history_days_per_station": 10,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 13349,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "8": {
+      "forecast_enabled": false,
+      "horizon_days": 8,
+      "minimum_history_days_per_station": 11,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 12166,
+      "stations": 49,
+      "status": "insufficient_data"
+    },
+    "9": {
+      "forecast_enabled": false,
+      "horizon_days": 9,
+      "minimum_history_days_per_station": 12,
+      "minimum_samples": 500,
+      "minimum_stations": 50,
+      "samples": 10820,
+      "stations": 49,
+      "status": "insufficient_data"
+    }
+  },
+  "note": "Only individually validated horizons are published. Research estimate, not official CPCB AQI.",
+  "schema_version": 1,
+  "source": "OpenAQ v3 station-hour observations",
+  "stations_with_history": 49,
+  "status": "insufficient_data",
+  "target": "future 24-hour station AQI window; direct independent horizon",
+  "trained_at": "2026-11-18T11:47:20.689426+00:00",
+  "validated_horizons_days": []
+}
