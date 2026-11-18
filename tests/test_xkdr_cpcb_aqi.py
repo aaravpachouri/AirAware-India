@@ -32,6 +32,8 @@ def _write_fixture(root: Path, *, hours: int = 24) -> Path:
       )
     """)
     conn.executemany("INSERT INTO observations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    conn.execute("ALTER TABLE observations ADD COLUMN collected_at_utc TIMESTAMPTZ")
+    conn.execute("UPDATE observations SET collected_at_utc = collected_at_ist AT TIME ZONE 'Asia/Kolkata'")
     conn.execute(f"COPY observations TO '{parquet.as_posix()}' (FORMAT PARQUET)")
     conn.close()
     (root / "ingestion_manifest.json").write_text(json.dumps({
