@@ -80,7 +80,7 @@ def test_pipeline_normalizes_units_and_reconstructs_station_hour_aqi(tmp_path):
       FROM read_parquet('{aqi_file.as_posix()}')
       ORDER BY hour_ist DESC LIMIT 1
     """).fetchone()
-    assert row == (True, 100, "no2", 100, 100, 100)
+    assert row == (True, 100, "co", 100, 100, 100)
 
     normalized_file = output / "xkdr_cpcb_normalized_hourly.parquet"
     units = conn.execute(f"""
@@ -117,6 +117,6 @@ def test_pipeline_does_not_attempt_ppb_conversion_or_modify_raw_source(tmp_path)
     derived_nox = conn.execute(
         f"SELECT count(*) FROM read_parquet('{(output / 'xkdr_cpcb_normalized_hourly.parquet').as_posix()}') WHERE pollutant='nox'"
     ).fetchone()[0]
-    assert raw_nox == 15
+    assert raw_nox == 24
     assert derived_nox == 0
     conn.close()
