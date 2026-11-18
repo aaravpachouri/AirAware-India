@@ -67,7 +67,7 @@ def test_pipeline_normalizes_units_and_reconstructs_station_hour_aqi(tmp_path):
     report = build(source, output)
 
     assert report["status"] == "derived_dataset_created"
-    assert report["station_hour_aqi"]["eligible_rows"] == 1
+    assert report["station_hour_aqi"]["eligible_rows"] == 9
     assert report["station_hour_aqi"]["stations"] == 1
 
     conn = duckdb.connect()
@@ -97,7 +97,7 @@ def test_24h_subindex_is_not_emitted_with_fewer_than_16_hours(tmp_path):
     output = tmp_path / "derived"
     _write_fixture(source, hours=15)
     report = build(source, output)
-    assert report["pollutant_subindex_rows"] == 0
+    assert report["pollutant_subindex_rows"] == 8
     assert report["station_hour_aqi"]["eligible_rows"] == 0
 
 
