@@ -1,12 +1,12 @@
 {
   "forecast_enabled": false,
-  "max_station_history_days": 30,
+  "max_station_history_days": 40,
   "minimum_history_days_per_station": 30,
   "minimum_samples": 500,
   "minimum_stations": 50,
   "reason": "Collect more real station-hour history before fitting a station model.",
-  "samples": 5276,
-  "stations": 18,
-  "stations_with_30d_history": 18,
+  "samples": 18428,
+  "stations": 47,
+  "stations_with_30d_history": 47,
   "status": "insufficient_data"
 }
