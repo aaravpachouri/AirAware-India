@@ -6,13 +6,10 @@ on:
       - "scripts/ingest_xkdr_historical.py"
       - "scripts/audit_xkdr_pilot.py"
       - "scripts/build_xkdr_cpcb_aqi.py"
-      - "scripts/build_xkdr_cpcb_aqi.py"
       - "tests/test_xkdr_historical_ingestion.py"
       - "tests/test_xkdr_pilot_audit.py"
       - "tests/test_xkdr_cpcb_aqi.py"
-      - "tests/test_xkdr_cpcb_aqi.py"
       - "requirements.txt"
-      - "docs/XKDR_CPCB_AQI_RECONSTRUCTION.md"
       - "docs/XKDR_CPCB_AQI_RECONSTRUCTION.md"
       - ".github/workflows/xkdr-historical-ingestion.yml"
   push:
