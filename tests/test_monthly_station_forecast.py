@@ -191,6 +191,10 @@ def test_monthly_report_serializes_numpy_station_ids(tmp_path, monkeypatch):
         "absolute_error_p90": 1.0,
     })
 
+    # This regression targets JSON report serialization, not sklearn/joblib pickling.
+    # The local dummy estimator is intentionally not pickleable.
+    monkeypatch.setattr(monthly.joblib, "dump", lambda *_args, **_kwargs: None)
+
     report = monthly.train_monthly_models(
         records,
         model_path=tmp_path / "monthly.joblib",
