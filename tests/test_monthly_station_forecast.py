@@ -151,3 +151,53 @@ def test_month_calendar_is_rendered_even_before_any_horizon_is_validated(tmp_pat
     assert result["days"][-1]["date"] == "2026-11-30"
     assert all(day["aqi"] is None for day in result["days"][1:])
     assert all(day["status"] == "unvalidated" for day in result["days"][1:])
+
+
+
+def test_monthly_report_serializes_numpy_station_ids(tmp_path, monkeypatch):
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+    rows = []
+    records = []
+    for station_id in range(1, 51):
+        records.extend([
+            {"station_id": station_id, "timestamp": (start - pd.Timedelta(days=1)).isoformat()},
+            {"station_id": station_id, "timestamp": (start + pd.Timedelta(days=40)).isoformat()},
+        ])
+        for day in range(10):
+            for hour in range(24):
+                issued = start + pd.Timedelta(days=day, hours=hour)
+                rows.append({
+                    "station_id": station_id,
+                    "issued_at": issued.isoformat(),
+                    **{feature: 50.0 for feature in FEATURES},
+                    "target_aqi": 55.0,
+                })
+    frame = pd.DataFrame(rows)
+    monkeypatch.setattr(monthly, "build_horizon_frame", lambda _records, _horizon: frame.copy())
+
+    class DummyModel:
+        def fit(self, _x, _y):
+            return self
+
+        def predict(self, x):
+            return [50.0] * len(x)
+
+    monkeypatch.setattr(monthly, "_pipeline", DummyModel)
+    monkeypatch.setattr(monthly, "_metrics", lambda _frame, _prediction: {
+        "samples": len(_frame), "stations": int(_frame.station_id.nunique()),
+        "model_mae": 1.0, "persistence_mae": 10.0,
+        "three_day_mean_mae": 9.0, "best_baseline_mae": 9.0,
+        "improvement_over_best_baseline_pct": 88.889,
+        "absolute_error_p90": 1.0,
+    })
+
+    report = monthly.train_monthly_models(
+        records,
+        model_path=tmp_path / "monthly.joblib",
+        report_path=tmp_path / "report.json",
+        max_horizon_days=1,
+    )
+
+    saved = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert report["horizons"]["1"]["status"] == "validated"
+    assert all(type(value) is int for value in saved["horizons"]["1"]["station_holdout_ids"])
