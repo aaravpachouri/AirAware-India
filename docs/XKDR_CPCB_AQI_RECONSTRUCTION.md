@@ -72,3 +72,21 @@ This pipeline is a deterministic method implementation, not yet evidence that th
 - XKDR Forum, *India Air Quality Database*: https://airquality.xkdr.org/#docs
 
 Attribution: **XKDR Forum, India Air Quality Database; Central Pollution Control Board (CPCB) CAAQM network**. XKDR data is licensed under CC BY 4.0.
+
+
+## Non-destructive concentration-tail diagnostics
+
+The pilot workflow also runs `scripts/audit_xkdr_value_diagnostics.py`. It reports, by pollutant and source unit, the number of observations above the highest CPCB AQI concentration breakpoint, the number at least twice that breakpoint, the 99th and 99.9th percentiles, maxima, and representative station/time records. It also counts station/pollutant/hour buckets containing conflicting source values.
+
+These are review queues, not automatic rejection rules. AQI breakpoints are index-mapping thresholds, not instrument-validity limits. A value above the top breakpoint can legitimately map to the capped sub-index of 500; it must not be deleted merely for exceeding that breakpoint. No raw observations are changed, dropped, winsorized, imputed, or relabelled.
+
+The diagnostic report does not prove calibration or regulatory validity. Such a determination requires station-specific instrument QA/calibration metadata and preferably confirmation against the originating monitoring network.
+
+## Official-source comparison status
+
+The January 2024 pilot is **not yet cross-validated against time-aligned official CPCB station-hour AQI values**. CPCB's public methodology describes rolling 24-hour averages (8-hour for CO/O3), minimum 16-hour data for a 24-hour sub-index, and at least three pollutants including PM2.5 or PM10 for an overall AQI. The public dashboard exposes current network/AQI information, but a reproducible January 2024 station-hour export with stable station identifiers has not yet been obtained in this workflow.
+
+Therefore:
+- Do not label the XKDR-derived records as official CPCB AQI.
+- Do not use this one-month derived dataset for production training or model replacement.
+- Treat exact official-source agreement as an outstanding release gate, not as a test that has passed.

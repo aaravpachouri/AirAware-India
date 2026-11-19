@@ -5,10 +5,12 @@ on:
     paths:
       - "scripts/ingest_xkdr_historical.py"
       - "scripts/audit_xkdr_pilot.py"
+      - "scripts/audit_xkdr_value_diagnostics.py"
       - "scripts/build_xkdr_cpcb_aqi.py"
       - "tests/test_xkdr_historical_ingestion.py"
       - "tests/test_xkdr_pilot_audit.py"
       - "tests/test_xkdr_cpcb_aqi.py"
+      - "tests/test_xkdr_value_diagnostics.py"
       - "requirements.txt"
       - "docs/XKDR_CPCB_AQI_RECONSTRUCTION.md"
       - ".github/workflows/xkdr-historical-ingestion.yml"
@@ -17,10 +19,12 @@ on:
     paths:
       - "scripts/ingest_xkdr_historical.py"
       - "scripts/audit_xkdr_pilot.py"
+      - "scripts/audit_xkdr_value_diagnostics.py"
       - "scripts/build_xkdr_cpcb_aqi.py"
       - "tests/test_xkdr_historical_ingestion.py"
       - "tests/test_xkdr_pilot_audit.py"
       - "tests/test_xkdr_cpcb_aqi.py"
+      - "tests/test_xkdr_value_diagnostics.py"
       - "requirements.txt"
       - "docs/XKDR_CPCB_AQI_RECONSTRUCTION.md"
       - ".github/workflows/xkdr-historical-ingestion.yml"
@@ -55,10 +59,10 @@ jobs:
           cache-dependency-path: requirements.txt
       - name: Install dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest
-      - name: Compile ingestion and audit code
-        run: python -m compileall -q scripts/ingest_xkdr_historical.py scripts/audit_xkdr_pilot.py scripts/build_xkdr_cpcb_aqi.py
+      - name: Compile ingestion, audit, and diagnostic code
+        run: python -m compileall -q scripts/ingest_xkdr_historical.py scripts/audit_xkdr_pilot.py scripts/audit_xkdr_value_diagnostics.py scripts/build_xkdr_cpcb_aqi.py
       - name: Run ingestion and independent QA tests
-        run: python -m pytest -q tests/test_xkdr_historical_ingestion.py tests/test_xkdr_pilot_audit.py tests/test_xkdr_cpcb_aqi.py
+        run: python -m pytest -q tests/test_xkdr_historical_ingestion.py tests/test_xkdr_pilot_audit.py tests/test_xkdr_cpcb_aqi.py tests/test_xkdr_value_diagnostics.py
       - name: Run selected XKDR CPCB ingestion pilot
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -75,6 +79,9 @@ jobs:
       - name: Build isolated normalized CPCB observations and reconstructed AQI
         if: github.event_name == 'workflow_dispatch'
         run: python scripts/build_xkdr_cpcb_aqi.py --data-dir data/xkdr_cpcb --output-dir data/xkdr_cpcb_derived
+      - name: Diagnose high concentrations and same-hour conflicts
+        if: github.event_name == 'workflow_dispatch'
+        run: python scripts/audit_xkdr_value_diagnostics.py --data-dir data/xkdr_cpcb --output reports/xkdr_value_diagnostics.json
       - name: Upload isolated CPCB pilot dataset and QA report
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -83,6 +90,7 @@ jobs:
           path: |
             data/xkdr_cpcb/**
             reports/xkdr_pilot_quality_audit.json
+            reports/xkdr_value_diagnostics.json
             data/xkdr_cpcb_derived/**
           if-no-files-found: error
           retention-days: 30
