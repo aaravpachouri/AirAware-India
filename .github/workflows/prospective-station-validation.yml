@@ -15,7 +15,7 @@ concurrency:
 jobs:
   collect-and-pair:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out public research ledger
         uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
           AIR_AWARE_MAX_STATIONS: "25"
           AIR_AWARE_DISCOVERY_MAX_PAGES: "20"
-          AIR_AWARE_HISTORY_MAX_STATIONS: "15"
+          AIR_AWARE_HISTORY_MAX_STATIONS: "50"
           AIR_AWARE_HISTORY_LOOKBACK_DAYS: "40"
         run: |
           set -euo pipefail

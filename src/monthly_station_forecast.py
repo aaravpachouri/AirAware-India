@@ -139,7 +139,7 @@ def train_monthly_models(records: list[dict], *, model_path=MODEL_PATH,
             **base, "status": "validated" if passed else "baseline_not_beaten",
             "forecast_enabled": passed, "purge_days": horizon+1,
             "temporal_holdout": mt, "station_holdout": ms,
-            "station_holdout_ids": sorted(held_ids),
+            "station_holdout_ids": sorted(int(station_id) for station_id in held_ids),
             "temporal_gate_passed": bool(tpass), "station_gate_passed": bool(spass),
         }
         if passed:
