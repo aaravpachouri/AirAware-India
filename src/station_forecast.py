@@ -63,10 +63,17 @@ def _utc(value: Any) -> datetime:
     return stamp.astimezone(timezone.utc)
 
 
-def read_history(path: Path = DEFAULT_HISTORY) -> list[dict]:
+def read_history(path: Path = DEFAULT_HISTORY, *, station_id: int | None = None) -> list[dict]:
+    """Read station history, optionally retaining only one station in memory.
+
+    Prediction requests need a single station, while training needs the full
+    dataset. Filtering during the streaming read prevents a dashboard request
+    from materializing the entire nationwide history in RAM.
+    """
     path = Path(path)
     if not path.exists():
         return []
+    requested_station = int(station_id) if station_id is not None else None
     rows = []
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8") as handle:
@@ -75,16 +82,21 @@ def read_history(path: Path = DEFAULT_HISTORY) -> list[dict]:
                 continue
             try:
                 row = json.loads(line)
-                station_id = int(row["station_id"])
+                row_station_id = int(row["station_id"])
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                raise ValueError(f"Invalid station history at line {line_no}") from exc
+            if requested_station is not None and row_station_id != requested_station:
+                continue
+            try:
                 sensor_id = int(row["sensor_id"])
                 pollutant = str(row["pollutant"]).lower()
                 value = float(row["value"])
                 stamp = _utc(row["timestamp"])
-            except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            except (ValueError, TypeError, KeyError) as exc:
                 raise ValueError(f"Invalid station history at line {line_no}") from exc
             if pollutant not in POLLUTANTS or not math.isfinite(value) or value < 0:
                 continue
-            rows.append({**row, "station_id": station_id, "sensor_id": sensor_id,
+            rows.append({**row, "station_id": row_station_id, "sensor_id": sensor_id,
                          "pollutant": pollutant, "value": value, "timestamp": stamp})
     return rows
 
@@ -409,8 +421,8 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
         return {"available": False, "reason": "Station model validation report is unavailable."}
     if report.get("status") != "validated" or report.get("forecast_enabled") is not True:
         return {"available": False, "reason": "Station model has not passed both baseline gates."}
-    records = read_history(history_path)
     station_id = int(station_id)
+    records = read_history(history_path, station_id=station_id)
     # Merge the selected station's current 30-day OpenAQ response in memory.
     # This refreshes the selected station without mixing data across stations
     # or relying on the nationwide background cursor to have run recently.

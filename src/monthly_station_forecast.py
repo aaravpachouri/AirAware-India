@@ -266,8 +266,10 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     except Exception:
         report, artifact = {}, {}
 
-    records = read_history(history_path)
     sid = int(station_id)
+    # The live dashboard forecasts one selected station. Stream the compressed
+    # national history but retain only that station's rows in memory.
+    records = read_history(history_path, station_id=sid)
     for item in additional_observations or []:
         try:
             records.append({"station_id": sid, "sensor_id": int(item["sensor_id"]),

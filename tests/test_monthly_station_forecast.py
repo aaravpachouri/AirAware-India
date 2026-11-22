@@ -25,6 +25,21 @@ def history(station_id=1, start=None, hours=240, offset=0):
     return rows
 
 
+def test_read_history_can_filter_to_selected_station(tmp_path):
+    path = tmp_path / "history.jsonl.gz"
+    import gzip
+    rows = history(station_id=10, hours=4) + history(station_id=20, hours=4)
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row) + "\n")
+
+    selected = monthly.read_history(path, station_id=20)
+    assert selected
+    assert {row["station_id"] for row in selected} == {20}
+    assert len(selected) == 4 * 6
+    assert len(monthly.read_history(path)) == 8 * 6
+
+
 def test_horizon_frame_uses_future_window_as_target_only():
     rows = history(hours=240)
     baseline = monthly.build_horizon_frame(rows, 2)
