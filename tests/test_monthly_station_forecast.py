@@ -31,7 +31,7 @@ def test_read_history_can_filter_to_selected_station(tmp_path):
     rows = history(station_id=10, hours=4) + history(station_id=20, hours=4)
     with gzip.open(path, "wt", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(json.dumps(row) + "\\n")
+            handle.write(json.dumps(row) + "\n")
 
     selected = monthly.read_history(path, station_id=20)
     assert selected
