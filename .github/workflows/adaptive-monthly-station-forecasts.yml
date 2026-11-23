@@ -35,7 +35,7 @@ jobs:
       - name: Train direct horizons and score matured forecasts
         run: |
           set -euo pipefail
-          python src/monthly_station_forecast.py | tee monthly-station-result.json
+          PYTHONUNBUFFERED=1 python -u src/monthly_station_forecast.py | tee monthly-station-result.json
       - name: Add model readiness and horizon metrics to run summary
         run: |
           python - <<'PY'
