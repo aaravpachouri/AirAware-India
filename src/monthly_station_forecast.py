@@ -37,22 +37,36 @@ def _pipeline():
     ])
 
 
-def build_horizon_frame(records: list[dict], horizon_days: int) -> pd.DataFrame:
-    """Daily issue rows; target is a future 24h AQI window at the requested horizon."""
+def build_horizon_frame(records: list[dict], horizon_days: int, *,
+                         series_map=None, feature_cache=None, target_cache=None) -> pd.DataFrame:
+    """Build one direct horizon while reusing costly station/hour calculations.
+
+    The monthly trainer shares these caches across all 30 horizons. Issue-time
+    features are horizon-independent, and a target AQI window is identical
+    whenever two horizons point at the same station/timestamp.
+    """
     if not 1 <= int(horizon_days) <= MAX_HORIZON_DAYS:
         raise ValueError("horizon_days must be between 1 and 30")
+    series_map = series_map if series_map is not None else hourly_station_series(records)
+    feature_cache = feature_cache if feature_cache is not None else {}
+    target_cache = target_cache if target_cache is not None else {}
     rows = []
-    for station_id, series in hourly_station_series(records).items():
+    for station_id, series in series_map.items():
         hours = sorted({h for values in series.values() for h in values})
         if not hours:
             continue
         anchor = min(hours).replace(minute=0, second=0, microsecond=0) + timedelta(hours=72)
         last = max(hours)
-        # Hourly issue times support any time-of-day inference. Validation below
-        # samples one fixed UTC hour per station/day to avoid overlapping targets.
         while anchor + timedelta(days=horizon_days) <= last + timedelta(hours=1):
-            features = _features_at(series, anchor)
-            target, _ = aqi_for_window(series, anchor + timedelta(days=horizon_days))
+            feature_key = (int(station_id), anchor)
+            if feature_key not in feature_cache:
+                feature_cache[feature_key] = _features_at(series, anchor)
+            features = feature_cache[feature_key]
+            target_at = anchor + timedelta(days=horizon_days)
+            target_key = (int(station_id), target_at)
+            if target_key not in target_cache:
+                target_cache[target_key] = aqi_for_window(series, target_at)[0]
+            target = target_cache[target_key]
             if features is not None and target is not None:
                 rows.append({"station_id": station_id, "issued_at": anchor.isoformat(),
                              **features, "target_aqi": float(target)})
@@ -97,9 +111,24 @@ def train_monthly_models(records: list[dict], *, model_path=MODEL_PATH,
     """Each horizon is independently trained, purged and baseline-gated."""
     model_path, report_path = Path(model_path), Path(report_path)
     spans = _station_spans(records)
+    # History normalization and issue features are horizon-independent. Build
+    # them once; caching the target windows also shares work between adjacent
+    # direct horizons rather than rebuilding all station/hour maps 30 times.
+    print("[monthly] normalizing station-hour history once", flush=True)
+    series_map = hourly_station_series(records)
+    feature_cache, target_cache = {}, {}
+    print(f"[monthly] normalized {len(series_map)} stations; training horizons", flush=True)
     models, horizon_reports = {}, {}
     for horizon in range(1, min(int(max_horizon_days), 30)+1):
-        frame = build_horizon_frame(records, horizon)
+        started = datetime.now(timezone.utc)
+        print(f"[monthly] horizon {horizon}/30: building samples", flush=True)
+        frame = build_horizon_frame(
+            records, horizon, series_map=series_map,
+            feature_cache=feature_cache, target_cache=target_cache,
+        )
+        print(f"[monthly] horizon {horizon}: {len(frame)} rows, "
+              f"{len(feature_cache)} cached issue features, "
+              f"{len(target_cache)} cached target windows", flush=True)
         mature = {sid for sid, days in spans.items() if days >= horizon+3}
         if not frame.empty:
             frame = frame[frame.station_id.isin(mature)].copy()
@@ -142,6 +171,9 @@ def train_monthly_models(records: list[dict], *, model_path=MODEL_PATH,
             "station_holdout_ids": sorted(int(station_id) for station_id in held_ids),
             "temporal_gate_passed": bool(tpass), "station_gate_passed": bool(spass),
         }
+        elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        print(f"[monthly] horizon {horizon}/30 finished: "
+              f"{horizon_reports[str(horizon)]['status']} in {elapsed:.1f}s", flush=True)
         if passed:
             final = _pipeline()
             final.fit(frame[list(FEATURES)], frame.target_aqi)
