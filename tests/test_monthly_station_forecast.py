@@ -63,6 +63,20 @@ def test_horizon_frame_uses_future_window_as_target_only():
     assert left.target_aqi != right.target_aqi
 
 
+def test_horizon_frame_reuses_shared_series_and_caches_without_changing_values():
+    rows = history(hours=240)
+    series_map = monthly.hourly_station_series(rows)
+    feature_cache, target_cache = {}, {}
+    cached = monthly.build_horizon_frame(
+        rows, 2, series_map=series_map,
+        feature_cache=feature_cache, target_cache=target_cache,
+    )
+    uncached = monthly.build_horizon_frame(rows, 2)
+    pd.testing.assert_frame_equal(cached, uncached)
+    assert feature_cache
+    assert target_cache
+
+
 def test_horizon_validation_range_is_enforced():
     with pytest.raises(ValueError, match="between 1 and 30"):
         monthly.build_horizon_frame([], 0)
@@ -188,7 +202,7 @@ def test_monthly_report_serializes_numpy_station_ids(tmp_path, monkeypatch):
                     "target_aqi": 55.0,
                 })
     frame = pd.DataFrame(rows)
-    monkeypatch.setattr(monthly, "build_horizon_frame", lambda _records, _horizon: frame.copy())
+    monkeypatch.setattr(monthly, "build_horizon_frame", lambda _records, _horizon, **_kwargs: frame.copy())
 
     class DummyModel:
         def fit(self, _x, _y):
