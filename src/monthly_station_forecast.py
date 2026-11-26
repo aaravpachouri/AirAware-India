@@ -412,7 +412,8 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
         cursor += timedelta(days=1)
     return {
         "available": True, "station_id": sid, "issued_at": anchor.isoformat(),
-        "timezone": timezone_name, "data_age_hours": round(age, 2) if math.isfinite(age) else None,
+        "timezone": timezone_name, "data_age_hours": (round(age, 2) if math.isfinite(age)
+                            else round(snapshot_age, 2) if snapshot_value is not None else None),
         "data_ready": baseline_ready,
         "hourly_data_ready": hourly_data_ready,
         "snapshot_reference_ready": snapshot_value is not None,
