@@ -249,6 +249,7 @@ def test_rolling_outlook_uses_fresh_snapshot_as_reference_when_hourly_coverage_f
         current_snapshot_aqi=140, snapshot_age_hours=1.25,
     )
     assert result["snapshot_reference_ready"] is True
+    assert result["data_age_hours"] == pytest.approx(1.25)
     assert result["days"][0]["aqi"] == 140
     assert result["days"][0]["status"] == "snapshot_estimate"
     assert result["days"][1]["aqi"] == 140
