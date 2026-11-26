@@ -313,9 +313,9 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     now = _utc(issued_at or datetime.now(timezone.utc))
     anchor = now.replace(minute=0, second=0, microsecond=0)
     features = _features_at(series, anchor) if series else None
+    current_value, _ = aqi_for_window(series, anchor) if series else (None, {})
 
     fresh = []
-    if features is not None:
         for pollutant in POLLUTANTS:
             window = {h: v for h, v in series.get(pollutant, {}).items()
                       if anchor-timedelta(hours=24) <= h < anchor}
@@ -335,14 +335,14 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     recent = [h for p in fresh for h in series.get(p, {})
               if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
     age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
-    data_ready = (
-        features is not None and len(fresh) >= 3
+    current_data_ready = (
+        current_value is not None and len(fresh) >= 3
         and bool({"pm25", "pm10"} & set(fresh))
         and 0 <= age <= max_data_age_hours
     )
+    model_data_ready = current_data_ready and features is not None
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
-    month_end = (local_today.replace(day=28)+timedelta(days=4)).replace(day=1)-timedelta(days=1)
-    current_value = float(features["aqi_current"]) if features is not None else None
+    forecast_end = local_today + timedelta(days=30)
     days = [{
         "date": local_today.isoformat(), "horizon_days": 0,
         "aqi": round(current_value, 1) if current_value is not None else None,
@@ -352,11 +352,11 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     }]
     cursor = local_today+timedelta(days=1)
     models = artifact.get("models", {})
-    while cursor <= month_end:
+    while cursor <= forecast_end:
         horizon = (cursor-local_today).days
         info = models.get(horizon) or models.get(str(horizon))
         gate = report.get("horizons", {}).get(str(horizon), {})
-        if data_ready and info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
+        if model_data_ready and info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
             try:
                 value = float(info["model"].predict(pd.DataFrame([features], columns=FEATURES))[0])
                 if not math.isfinite(value):
@@ -370,10 +370,20 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
             except Exception:
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
+        elif current_data_ready:
+            # Explicit persistence benchmark while ML is withheld by validation.
+            baseline = max(0.0, min(500.0, float(current_value)))
+            days.append({
+                "date": cursor.isoformat(), "horizon_days": horizon,
+                "aqi": round(baseline, 1), "lower_90": None, "upper_90": None,
+                "status": "baseline_forecast", "baseline": "persistence",
+                "category": _category(baseline),
+                "reason": gate.get("status", "ML horizon not validated"),
+            })
         else:
             reason = (
                 "Fresh station-hour coverage is not sufficient."
-                if not data_ready else gate.get("status", "No validated model for this horizon.")
+                if not current_data_ready else gate.get("status", "No validated model for this horizon.")
             )
             days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                          "aqi": None, "status": "unvalidated", "reason": reason})
@@ -381,10 +391,12 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     return {
         "available": True, "station_id": sid, "issued_at": anchor.isoformat(),
         "timezone": timezone_name, "data_age_hours": round(age, 2) if math.isfinite(age) else None,
-        "data_ready": data_ready,
+        "data_ready": current_data_ready,
+        "model_data_ready": model_data_ready,
+        "forecast_days": 30,
         "validated_horizons_days": report.get("validated_horizons_days", []),
         "days": days,
-        "reason": None if data_ready else "Current station history has not met the freshness and pollutant coverage gates.",
+        "reason": None if current_data_ready else "Current station history has not met the freshness and pollutant coverage gates.",
         "basis": "OpenAQ-derived station-hour research estimates; not official CPCB AQI.",
     }
 
