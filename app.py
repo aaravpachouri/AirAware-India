@@ -3750,13 +3750,21 @@ if page == "Latest Air":
             )
         except Exception as error:
             station_forecast = {"available": False, "reason": str(error)[:180]}
+    snapshot_fallback = (
+        safe_float(snapshot_aqi)
+        if safe_float(snapshot_aqi) is not None and 0 <= safe_float(live["age_hours"]) <= 6
+        else None
+    )
     tomorrow_prediction = (
-        float(station_forecast["predicted_aqi"])
-        if station_forecast.get("available") else safe_float(hourly_aqi)
+        float(station_forecast["predicted_aqi"]) if station_forecast.get("available")
+        else safe_float(hourly_aqi) if hourly_aqi is not None
+        else snapshot_fallback
     )
     forecast_method = (
         "Validated station ML" if station_forecast.get("available")
-        else "Persistence baseline" if hourly_aqi is not None else "Unavailable"
+        else "Persistence baseline" if hourly_aqi is not None
+        else "Snapshot reference" if snapshot_fallback is not None
+        else "Unavailable"
     )
     movement_result = {"available": False, "reason": "Two comparable 24-hour AQI windows are needed."}
     if hourly_result and hourly_result.get("hourly_observations"):
@@ -3778,6 +3786,8 @@ if page == "Latest Air":
                 hourly_result.get("hourly_observations", [])
                 if hourly_result else []
             ),
+            current_snapshot_aqi=snapshot_aqi,
+            snapshot_age_hours=live.get("age_hours"),
         )
     except Exception as monthly_error:
         monthly_outlook = {"available": False, "days": [], "reason": str(monthly_error)[:180]}
@@ -3841,6 +3851,11 @@ if page == "Latest Air":
             f"Tomorrow shows a persistence baseline ({round(float(hourly_aqi))}), not a validated ML prediction. "
             "It uses the latest eligible 24-hour station AQI as a reference; the trained model did not beat its benchmark."
         )
+    elif snapshot_fallback is not None:
+        st.info(
+            f"Tomorrow shows a fresh snapshot reference ({round(snapshot_fallback)}), not a forecast. "
+            "Hourly coverage is insufficient and no validated station ML model is published."
+        )
         st.caption(
             f"Forecast target: {station_forecast.get('target_at')} · "
             f"Station history age: {station_forecast.get('data_age_hours')} hours · "
@@ -3870,6 +3885,7 @@ if page == "Latest Air":
             status = (
                 "Current station estimate" if day.get("status") == "current_estimate"
                 else "Validated forecast" if day.get("status") == "validated_forecast"
+                else "Snapshot carry-forward · not a forecast" if day.get("status") == "snapshot_reference"
                 else "Persistence baseline · ML not validated" if day.get("status") == "baseline_forecast"
                 else "ML horizon not validated" if day.get("status") == "unvalidated"
                 else "Unavailable"
