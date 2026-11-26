@@ -284,6 +284,30 @@ def _category(value):
             "Very Poor" if value <= 400 else "Severe")
 
 
+def _trend_reference(current_value, daily_history, horizon_days):
+    """Conservative, explicitly unvalidated trend benchmark; never recursive ML."""
+    points = [(float(day), float(value)) for day, value in daily_history
+              if value is not None and math.isfinite(float(value))]
+    if not points:
+        return max(0.0, min(500.0, float(current_value)))
+    recent = points[-5:]
+    center = float(np.median([value for _, value in recent]))
+    slopes = [
+        (v2-v1)/(d2-d1)
+        for i, (d1, v1) in enumerate(points)
+        for d2, v2 in points[i+1:]
+        if d2 > d1
+    ]
+    slope = float(np.median(slopes)) if slopes else 0.0
+    slope = max(-12.0, min(12.0, slope))
+    h = max(1, int(horizon_days))
+    # Trend contribution fades after the first week; the level gradually
+    # mean-reverts toward the recent median instead of freezing at today's AQI.
+    trend = slope * min(h, 10) * math.exp(-h/18.0)
+    reversion = (float(current_value)-center) * math.exp(-h/8.0)
+    return max(0.0, min(500.0, center + reversion + trend))
+
+
 def predict_remaining_month(station_id: int, *, issued_at=None,
                             timezone_name="Asia/Kolkata", history_path=None,
                             model_path=MODEL_PATH, report_path=REPORT_PATH,
@@ -355,6 +379,17 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     baseline_ready = hourly_data_ready or snapshot_value is not None
     model_data_ready = hourly_data_ready and features is not None
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
+
+    # Build a compact recent daily AQI trace once. This gives the fallback
+    # reference a changing, trend-aware trajectory without 30 repeated values
+    # or repeated full-history reads. It remains explicitly unvalidated.
+    daily_history = []
+    if hourly_data_ready:
+        for lookback in range(6, -1, -1):
+            day_anchor = anchor - timedelta(days=lookback)
+            day_value, _ = aqi_for_window(series, day_anchor)
+            if day_value is not None:
+                daily_history.append((6-lookback, float(day_value)))
     forecast_end = local_today + timedelta(days=30)
     days = [{
         "date": local_today.isoformat(), "horizon_days": 0,
@@ -385,13 +420,14 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
         elif hourly_data_ready:
-            # Explicit persistence benchmark while ML is withheld by validation.
-            baseline = max(0.0, min(500.0, float(current_value)))
+            # Trend reference avoids a flat persistence line, but is not
+            # promoted to an ML forecast and carries no calibrated error band.
+            reference = _trend_reference(current_value, daily_history, horizon)
             days.append({
                 "date": cursor.isoformat(), "horizon_days": horizon,
-                "aqi": round(baseline, 1), "lower_90": None, "upper_90": None,
-                "status": "baseline_forecast", "baseline": "persistence",
-                "category": _category(baseline),
+                "aqi": round(reference, 1), "lower_90": None, "upper_90": None,
+                "status": "trend_reference", "baseline": "recent_daily_trend",
+                "category": _category(reference),
                 "reason": gate.get("status", "ML horizon not validated"),
             })
         elif snapshot_value is not None:
