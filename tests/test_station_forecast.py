@@ -206,7 +206,7 @@ def test_station_aqi_movement_uses_two_fresh_24h_windows(tmp_path):
     )
     history_path = tmp_path / "history.jsonl"
     history_path.write_text(
-        "".join(json.dumps(row)+"\\n" for row in rows), encoding="utf-8"
+        "".join(json.dumps(row)+"\n" for row in rows), encoding="utf-8"
     )
     result = calculate_station_aqi_movement(
         42, issued_at=issue, history_path=history_path
