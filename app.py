@@ -54,7 +54,24 @@ from live_air import (
 )
 
 from live_forecast_features import build_live_forecast_features
-from station_forecast import predict_station_forecast, calculate_station_aqi_movement
+import station_forecast as _station_forecast
+
+predict_station_forecast = _station_forecast.predict_station_forecast
+calculate_station_aqi_movement = getattr(
+    _station_forecast, "calculate_station_aqi_movement", None
+)
+
+if calculate_station_aqi_movement is None:
+    # A Streamlit worker can retain an older imported module after a deploy.
+    # Keep the dashboard bootable and make the unavailable calculation explicit.
+    def calculate_station_aqi_movement(*args, **kwargs):
+        return {
+            "available": False,
+            "reason": (
+                "Station movement code is not loaded in this app worker yet. "
+                "Restart the Streamlit app to load the latest deployment."
+            ),
+        }
 from monthly_station_forecast import predict_remaining_month
 
 
