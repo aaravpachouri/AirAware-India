@@ -327,22 +327,22 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
         current_value = snapshot_value
 
     fresh = []
-        for pollutant in POLLUTANTS:
-            window = {h: v for h, v in series.get(pollutant, {}).items()
-                      if anchor-timedelta(hours=24) <= h < anchor}
-            if len(window) < 16:
+    for pollutant in POLLUTANTS:
+        window = {h: v for h, v in series.get(pollutant, {}).items()
+                  if anchor-timedelta(hours=24) <= h < anchor}
+        if len(window) < 16:
+            continue
+        if pollutant in {"co", "o3"}:
+            ordered = sorted(window)
+            complete = any(
+                len(ordered[i:i+8]) == 8
+                and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
+                and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
+                for i in range(max(0, len(ordered)-7))
+            )
+            if not complete:
                 continue
-            if pollutant in {"co", "o3"}:
-                ordered = sorted(window)
-                complete = any(
-                    len(ordered[i:i+8]) == 8
-                    and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
-                    and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
-                    for i in range(max(0, len(ordered)-7))
-                )
-                if not complete:
-                    continue
-            fresh.append(pollutant)
+        fresh.append(pollutant)
     recent = [h for p in fresh for h in series.get(p, {})
               if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
     age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
