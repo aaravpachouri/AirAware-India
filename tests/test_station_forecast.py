@@ -194,3 +194,27 @@ def test_read_history_supports_compressed_jsonl(tmp_path):
     assert len(records) == 1
     assert records[0]["station_id"] == 42
     assert records[0]["value"] == 12.5
+
+
+
+def test_station_aqi_movement_uses_two_fresh_24h_windows(tmp_path):
+    from station_forecast import calculate_station_aqi_movement
+
+    issue = datetime(2026, 1, 5, tzinfo=timezone.utc)
+    rows = _synthetic_history(
+        station_id=42, start=issue-timedelta(hours=96), hours=96
+    )
+    history_path = tmp_path / "history.jsonl"
+    history_path.write_text(
+        "".join(json.dumps(row)+"\n" for row in rows), encoding="utf-8"
+    )
+    result = calculate_station_aqi_movement(
+        42, issued_at=issue, history_path=history_path
+    )
+    assert result["available"] is True
+    assert result["current_aqi"] >= 0
+    assert result["previous_24h_aqi"] >= 0
+    assert result["delta"] == pytest.approx(
+        result["current_aqi"]-result["previous_24h_aqi"]
+    )
+    assert result["data_age_hours"] <= 6

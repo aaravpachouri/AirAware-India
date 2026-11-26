@@ -287,8 +287,9 @@ def _category(value):
 def predict_remaining_month(station_id: int, *, issued_at=None,
                             timezone_name="Asia/Kolkata", history_path=None,
                             model_path=MODEL_PATH, report_path=REPORT_PATH,
-                            additional_observations=None, max_data_age_hours=6.0):
-    """Always return the remaining calendar dates; only validated horizons get values."""
+                            additional_observations=None, max_data_age_hours=6.0,
+                            current_snapshot_aqi=None, snapshot_age_hours=None):
+    """Return today plus 30 dates; use ML, hourly persistence, or fresh snapshot reference explicitly."""
     history_path = Path(history_path) if history_path else ROOT/"data"/"station_hourly_history.jsonl.gz"
     try:
         report = json.loads(Path(report_path).read_text(encoding="utf-8"))
@@ -313,50 +314,63 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     now = _utc(issued_at or datetime.now(timezone.utc))
     anchor = now.replace(minute=0, second=0, microsecond=0)
     features = _features_at(series, anchor) if series else None
+    current_value, _ = aqi_for_window(series, anchor) if series else (None, {})
+    snapshot_value = None
+    snapshot_age = None
+    try:
+        candidate = float(current_snapshot_aqi)
+        snapshot_age = float(snapshot_age_hours)
+        if math.isfinite(candidate) and 0 <= candidate <= 500 and 0 <= snapshot_age <= 6:
+            snapshot_value = candidate
+    except (TypeError, ValueError, OverflowError):
+        snapshot_value = None
+    if current_value is None and snapshot_value is not None:
+        current_value = snapshot_value
 
     fresh = []
-    if features is not None:
-        for pollutant in POLLUTANTS:
-            window = {h: v for h, v in series.get(pollutant, {}).items()
-                      if anchor-timedelta(hours=24) <= h < anchor}
-            if len(window) < 16:
+    for pollutant in POLLUTANTS:
+        window = {h: v for h, v in series.get(pollutant, {}).items()
+                  if anchor-timedelta(hours=24) <= h < anchor}
+        if len(window) < 16:
+            continue
+        if pollutant in {"co", "o3"}:
+            ordered = sorted(window)
+            complete = any(
+                len(ordered[i:i+8]) == 8
+                and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
+                and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
+                for i in range(max(0, len(ordered)-7))
+            )
+            if not complete:
                 continue
-            if pollutant in {"co", "o3"}:
-                ordered = sorted(window)
-                complete = any(
-                    len(ordered[i:i+8]) == 8
-                    and all(ordered[i+j]-ordered[i+j-1] == timedelta(hours=1) for j in range(1, 8))
-                    and ordered[i+7] >= anchor-timedelta(hours=max_data_age_hours)
-                    for i in range(max(0, len(ordered)-7))
-                )
-                if not complete:
-                    continue
-            fresh.append(pollutant)
+        fresh.append(pollutant)
     recent = [h for p in fresh for h in series.get(p, {})
               if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
     age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
-    data_ready = (
-        features is not None and len(fresh) >= 3
+    hourly_data_ready = (
+        current_value is not None and len(fresh) >= 3
         and bool({"pm25", "pm10"} & set(fresh))
         and 0 <= age <= max_data_age_hours
     )
+    baseline_ready = hourly_data_ready or snapshot_value is not None
+    model_data_ready = hourly_data_ready and features is not None
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
-    month_end = (local_today.replace(day=28)+timedelta(days=4)).replace(day=1)-timedelta(days=1)
-    current_value = float(features["aqi_current"]) if features is not None else None
+    forecast_end = local_today + timedelta(days=30)
     days = [{
         "date": local_today.isoformat(), "horizon_days": 0,
         "aqi": round(current_value, 1) if current_value is not None else None,
         "lower_90": None, "upper_90": None,
-        "status": "current_estimate" if current_value is not None else "current_unavailable",
+        "status": ("current_estimate" if hourly_data_ready else "snapshot_estimate")
+                  if current_value is not None else "current_unavailable",
         "category": _category(current_value) if current_value is not None else "Unavailable",
     }]
     cursor = local_today+timedelta(days=1)
     models = artifact.get("models", {})
-    while cursor <= month_end:
+    while cursor <= forecast_end:
         horizon = (cursor-local_today).days
         info = models.get(horizon) or models.get(str(horizon))
         gate = report.get("horizons", {}).get(str(horizon), {})
-        if data_ready and info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
+        if model_data_ready and info and info.get("validation_status") == "validated" and gate.get("forecast_enabled"):
             try:
                 value = float(info["model"].predict(pd.DataFrame([features], columns=FEATURES))[0])
                 if not math.isfinite(value):
@@ -370,21 +384,44 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
             except Exception:
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
+        elif hourly_data_ready:
+            # Explicit persistence benchmark while ML is withheld by validation.
+            baseline = max(0.0, min(500.0, float(current_value)))
+            days.append({
+                "date": cursor.isoformat(), "horizon_days": horizon,
+                "aqi": round(baseline, 1), "lower_90": None, "upper_90": None,
+                "status": "baseline_forecast", "baseline": "persistence",
+                "category": _category(baseline),
+                "reason": gate.get("status", "ML horizon not validated"),
+            })
+        elif snapshot_value is not None:
+            days.append({
+                "date": cursor.isoformat(), "horizon_days": horizon,
+                "aqi": round(snapshot_value, 1), "lower_90": None, "upper_90": None,
+                "status": "snapshot_reference", "baseline": "latest_snapshot_carry_forward",
+                "category": _category(snapshot_value),
+                "reason": "Latest fresh snapshot carried forward for reference; not a forecast.",
+            })
         else:
             reason = (
                 "Fresh station-hour coverage is not sufficient."
-                if not data_ready else gate.get("status", "No validated model for this horizon.")
+                if not baseline_ready else gate.get("status", "No validated model for this horizon.")
             )
             days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                          "aqi": None, "status": "unvalidated", "reason": reason})
         cursor += timedelta(days=1)
     return {
         "available": True, "station_id": sid, "issued_at": anchor.isoformat(),
-        "timezone": timezone_name, "data_age_hours": round(age, 2) if math.isfinite(age) else None,
-        "data_ready": data_ready,
+        "timezone": timezone_name, "data_age_hours": (round(age, 2) if math.isfinite(age)
+                            else round(snapshot_age, 2) if snapshot_value is not None else None),
+        "data_ready": baseline_ready,
+        "hourly_data_ready": hourly_data_ready,
+        "snapshot_reference_ready": snapshot_value is not None,
+        "model_data_ready": model_data_ready,
+        "forecast_days": 30,
         "validated_horizons_days": report.get("validated_horizons_days", []),
         "days": days,
-        "reason": None if data_ready else "Current station history has not met the freshness and pollutant coverage gates.",
+        "reason": None if baseline_ready else "Current station history has not met freshness and pollutant coverage gates, and no fresh snapshot is available.",
         "basis": "OpenAQ-derived station-hour research estimates; not official CPCB AQI.",
     }
 

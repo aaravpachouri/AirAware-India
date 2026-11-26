@@ -54,7 +54,7 @@ from live_air import (
 )
 
 from live_forecast_features import build_live_forecast_features
-from station_forecast import predict_station_forecast
+from station_forecast import predict_station_forecast, calculate_station_aqi_movement
 from monthly_station_forecast import predict_remaining_month
 
 
@@ -1341,6 +1341,8 @@ def render_animated_hero(
     tomorrow_prediction,
 
     provider,
+    movement_data=None,
+    forecast_method="Unavailable",
 
 ):
 
@@ -1435,8 +1437,22 @@ def render_animated_hero(
 
 
     tomorrow_text = "—" if tomorrow is None else str(tomorrow)
-
-
+    movement_data = movement_data or {}
+    if movement_data.get("available"):
+        movement_delta = float(movement_data["delta"])
+        if movement_delta > 5:
+            delta_text = f"↑ {movement_delta:+.0f} / 24h"
+        elif movement_delta < -5:
+            delta_text = f"↓ {movement_delta:+.0f} / 24h"
+        else:
+            delta_text = f"→ {movement_delta:+.0f} / 24h"
+    else:
+        delta_text = "Waiting for 48h data"
+    forecast_method = str(forecast_method or "Unavailable")
+    forecast_label = ("Tomorrow · ML validated" if forecast_method == "Validated station ML"
+                      else "Tomorrow · persistence baseline" if forecast_method == "Persistence baseline"
+                      else "Tomorrow · snapshot reference" if forecast_method == "Snapshot reference"
+                      else "Tomorrow forecast")
 
     category_key = str(category or "Unavailable").strip().lower()
 
@@ -1477,6 +1493,8 @@ def render_animated_hero(
     safe_provider = escape(str(provider or "Unknown"))
 
     safe_freshness = escape(str(freshness or "Unknown"))
+    safe_forecast_label = escape(forecast_label)
+    safe_forecast_method = escape(forecast_method)
 
     safe_category = escape(str(category or "Unavailable"))
 
@@ -2682,7 +2700,7 @@ html, body {{
 
                 <div class="aa-panel-label">
 
-                    Tomorrow Forecast
+                    {safe_forecast_label}
 
                 </div>
 
@@ -2736,7 +2754,7 @@ html, body {{
 
                 <div class="aa-stat-label">System</div>
 
-                <div class="aa-stat-value">AirAware ML Forecast</div>
+                <div class="aa-stat-value">{safe_forecast_method}</div>
 
             </div>
 
@@ -3731,10 +3749,34 @@ if page == "Latest Air":
             )
         except Exception as error:
             station_forecast = {"available": False, "reason": str(error)[:180]}
-    tomorrow_prediction = (
-        float(station_forecast["predicted_aqi"])
-        if station_forecast.get("available") else None
+    snapshot_age = safe_float(live.get("age_hours"))
+    snapshot_fallback = (
+        safe_float(snapshot_aqi)
+        if safe_float(snapshot_aqi) is not None and snapshot_age is not None
+        and 0 <= snapshot_age <= 6
+        else None
     )
+    tomorrow_prediction = (
+        float(station_forecast["predicted_aqi"]) if station_forecast.get("available")
+        else safe_float(hourly_aqi) if hourly_aqi is not None
+        else snapshot_fallback
+    )
+    forecast_method = (
+        "Validated station ML" if station_forecast.get("available")
+        else "Persistence baseline" if hourly_aqi is not None
+        else "Snapshot reference" if snapshot_fallback is not None
+        else "Unavailable"
+    )
+    movement_result = {"available": False, "reason": "Two comparable 24-hour AQI windows are needed."}
+    try:
+        movement_result = calculate_station_aqi_movement(
+            int(selected_location["id"]),
+            additional_observations=(
+                hourly_result.get("hourly_observations", []) if hourly_result else []
+            ),
+        )
+    except Exception as movement_error:
+        movement_result = {"available": False, "reason": str(movement_error)[:180]}
 
     # Direct multi-horizon forecasts are independent of the 24-hour model.
     # Unvalidated dates remain visible as such; no recursive/fabricated values.
@@ -3746,6 +3788,8 @@ if page == "Latest Air":
                 hourly_result.get("hourly_observations", [])
                 if hourly_result else []
             ),
+            current_snapshot_aqi=snapshot_aqi,
+            snapshot_age_hours=live.get("age_hours"),
         )
     except Exception as monthly_error:
         monthly_outlook = {"available": False, "days": [], "reason": str(monthly_error)[:180]}
@@ -3775,7 +3819,8 @@ if page == "Latest Air":
         freshness=live["freshness"],
 
         tomorrow_prediction=tomorrow_prediction,
-
+        movement_data=movement_result,
+        forecast_method=forecast_method,
         provider="OpenAQ v3",
 
     )
@@ -3800,9 +3845,18 @@ if page == "Latest Air":
 
     if station_forecast.get("available"):
         st.success(
-            "Tomorrow's station-level trend forecast is enabled after passing "
-            "chronological and held-out-station baseline tests. "
-            "This is an OpenAQ-derived research estimate, not an official CPCB forecast."
+            "Tomorrow's station-level model forecast passed chronological and held-out-station baseline tests. "
+            "OpenAQ-derived research estimate; not an official CPCB forecast."
+        )
+    elif hourly_aqi is not None:
+        st.info(
+            f"Tomorrow shows a persistence baseline ({round(float(hourly_aqi))}), not a validated ML prediction. "
+            "It uses the latest eligible 24-hour station AQI as a reference; the trained model did not beat its benchmark."
+        )
+    elif snapshot_fallback is not None:
+        st.info(
+            f"Tomorrow shows a fresh snapshot reference ({round(snapshot_fallback)}), not a forecast. "
+            "Hourly coverage is insufficient and no validated station ML model is published."
         )
         st.caption(
             f"Forecast target: {station_forecast.get('target_at')} · "
@@ -3816,12 +3870,11 @@ if page == "Latest Air":
                   "More station-specific hourly history is needed before a reliable forecast can be published.")
         )
 
-    st.markdown("### Adaptive monthly AQI outlook")
+    st.markdown("### Rolling 30-day AQI outlook")
     st.caption(
-        "Each date is scored by its own direct forecast horizon using the latest "
-        "station history. The outlook refreshes as new observations arrive; it does "
-        "not roll yesterday's prediction forward. P90 bands summarize held-out historical "
-        "errors; unvalidated horizons are shown honestly."
+        "Shows today plus the next 30 days. Validated horizons use the direct station ML model; "
+        "when its validation gate is closed, the table shows a clearly labeled persistence baseline. "
+        "Baseline values are not ML forecasts and have no calibrated P90 band."
     )
     if monthly_outlook.get("available"):
         monthly_rows = []
@@ -3834,7 +3887,9 @@ if page == "Latest Air":
             status = (
                 "Current station estimate" if day.get("status") == "current_estimate"
                 else "Validated forecast" if day.get("status") == "validated_forecast"
-                else "Not validated yet" if day.get("status") == "unvalidated"
+                else "Snapshot carry-forward · not a forecast" if day.get("status") == "snapshot_reference"
+                else "Persistence baseline · ML not validated" if day.get("status") == "baseline_forecast"
+                else "ML horizon not validated" if day.get("status") == "unvalidated"
                 else "Unavailable"
             )
             monthly_rows.append({
@@ -3848,7 +3903,7 @@ if page == "Latest Air":
         st.caption(
             f"Validated horizons: {monthly_outlook.get('validated_horizons_days', [])} · "
             f"Station data age: {monthly_outlook.get('data_age_hours')} hours · "
-            "OpenAQ-derived research estimates, not official CPCB forecasts."
+            "OpenAQ-derived research estimates, not official CPCB forecasts. Persistence rows are benchmarks; only validated status rows are ML."
         )
     else:
         st.info(

@@ -507,6 +507,54 @@ def predict_station_forecast(station_id: int, *, issued_at: datetime | None = No
     }
 
 
+def calculate_station_aqi_movement(
+    station_id: int,
+    *,
+    issued_at: datetime | None = None,
+    history_path: Path = DEFAULT_HISTORY,
+    additional_observations: list[dict] | None = None,
+    max_data_age_hours: float = 6.0,
+) -> dict:
+    """Compare consecutive 24-hour AQI windows from the selected station."""
+    sid = int(station_id)
+    records = read_history(history_path, station_id=sid)
+    for item in additional_observations or []:
+        try:
+            records.append({
+                "station_id": sid, "sensor_id": int(item["sensor_id"]),
+                "pollutant": str(item["pollutant"]).lower(),
+                "timestamp": item["timestamp"], "value": float(item["value"]),
+            })
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+    series = hourly_station_series(records).get(sid, {})
+    anchor = _utc(issued_at or datetime.now(timezone.utc))
+    anchor = anchor.replace(minute=0, second=0, microsecond=0)
+    current, _ = aqi_for_window(series, anchor)
+    previous, _ = aqi_for_window(series, anchor - timedelta(hours=24))
+    if current is None or previous is None:
+        return {"available": False, "reason": "Two comparable 24-hour AQI windows are not yet available."}
+    recent_hours = [
+        hour for pollutant in POLLUTANTS for hour in series.get(pollutant, {})
+        if anchor-timedelta(hours=float(max_data_age_hours)) <= hour < anchor
+    ]
+    if not recent_hours:
+        return {"available": False, "reason": "No fresh hourly station observations."}
+    age = (anchor-max(recent_hours)).total_seconds()/3600
+    if age < 0 or age > float(max_data_age_hours):
+        return {"available": False, "reason": "Hourly station observations are stale.", "data_age_hours": round(age, 2)}
+    delta = round(float(current)-float(previous), 1)
+    direction = "rising" if delta > 5 else "falling" if delta < -5 else "stable"
+    return {
+        "available": True, "station_id": sid,
+        "current_aqi": round(float(current), 1),
+        "previous_24h_aqi": round(float(previous), 1),
+        "delta": delta, "direction": direction,
+        "data_age_hours": round(age, 2),
+        "basis": "Difference between consecutive OpenAQ-derived 24-hour station AQI windows.",
+    }
+
+
 def main() -> None:
     records = read_history()
     report = train_and_validate(records)
