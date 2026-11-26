@@ -3770,14 +3770,15 @@ if page == "Latest Air":
         else "Unavailable"
     )
     movement_result = {"available": False, "reason": "Two comparable 24-hour AQI windows are needed."}
-    if hourly_result and hourly_result.get("hourly_observations"):
-        try:
-            movement_result = calculate_station_aqi_movement(
-                int(selected_location["id"]),
-                additional_observations=hourly_result.get("hourly_observations", []),
-            )
-        except Exception as movement_error:
-            movement_result = {"available": False, "reason": str(movement_error)[:180]}
+    try:
+        movement_result = calculate_station_aqi_movement(
+            int(selected_location["id"]),
+            additional_observations=(
+                hourly_result.get("hourly_observations", []) if hourly_result else []
+            ),
+        )
+    except Exception as movement_error:
+        movement_result = {"available": False, "reason": str(movement_error)[:180]}
 
     # Direct multi-horizon forecasts are independent of the 24-hour model.
     # Unvalidated dates remain visible as such; no recursive/fabricated values.
