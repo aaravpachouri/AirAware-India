@@ -287,7 +287,8 @@ def _category(value):
 def predict_remaining_month(station_id: int, *, issued_at=None,
                             timezone_name="Asia/Kolkata", history_path=None,
                             model_path=MODEL_PATH, report_path=REPORT_PATH,
-                            additional_observations=None, max_data_age_hours=6.0):
+                            additional_observations=None, max_data_age_hours=6.0,
+                            current_snapshot_aqi=None, snapshot_age_hours=None):
     """Always return the remaining calendar dates; only validated horizons get values."""
     history_path = Path(history_path) if history_path else ROOT/"data"/"station_hourly_history.jsonl.gz"
     try:
@@ -314,6 +315,16 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     anchor = now.replace(minute=0, second=0, microsecond=0)
     features = _features_at(series, anchor) if series else None
     current_value, _ = aqi_for_window(series, anchor) if series else (None, {})
+    snapshot_value = None
+    try:
+        candidate = float(current_snapshot_aqi)
+        snapshot_age = float(snapshot_age_hours)
+        if math.isfinite(candidate) and 0 <= candidate <= 500 and 0 <= snapshot_age <= 6:
+            snapshot_value = candidate
+    except (TypeError, ValueError, OverflowError):
+        snapshot_value = None
+    if current_value is None and snapshot_value is not None:
+        current_value = snapshot_value
 
     fresh = []
         for pollutant in POLLUTANTS:
@@ -335,19 +346,22 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     recent = [h for p in fresh for h in series.get(p, {})
               if anchor-timedelta(hours=max_data_age_hours) <= h < anchor]
     age = (anchor-max(recent)).total_seconds()/3600 if recent else float("inf")
-    current_data_ready = (
+    hourly_data_ready = (
         current_value is not None and len(fresh) >= 3
         and bool({"pm25", "pm10"} & set(fresh))
         and 0 <= age <= max_data_age_hours
     )
-    model_data_ready = current_data_ready and features is not None
+    current_data_ready = hourly_data_ready and snapshot_value is None
+    baseline_ready = hourly_data_ready or snapshot_value is not None
+    model_data_ready = hourly_data_ready and features is not None
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
     forecast_end = local_today + timedelta(days=30)
     days = [{
         "date": local_today.isoformat(), "horizon_days": 0,
         "aqi": round(current_value, 1) if current_value is not None else None,
         "lower_90": None, "upper_90": None,
-        "status": "current_estimate" if current_value is not None else "current_unavailable",
+        "status": ("current_estimate" if hourly_data_ready else "snapshot_estimate")
+                  if current_value is not None else "current_unavailable",
         "category": _category(current_value) if current_value is not None else "Unavailable",
     }]
     cursor = local_today+timedelta(days=1)
@@ -370,7 +384,7 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
             except Exception:
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
-        elif current_data_ready:
+        elif hourly_data_ready:
             # Explicit persistence benchmark while ML is withheld by validation.
             baseline = max(0.0, min(500.0, float(current_value)))
             days.append({
@@ -380,10 +394,18 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                 "category": _category(baseline),
                 "reason": gate.get("status", "ML horizon not validated"),
             })
+        elif snapshot_value is not None:
+            days.append({
+                "date": cursor.isoformat(), "horizon_days": horizon,
+                "aqi": round(snapshot_value, 1), "lower_90": None, "upper_90": None,
+                "status": "snapshot_reference", "baseline": "latest_snapshot_carry_forward",
+                "category": _category(snapshot_value),
+                "reason": "Latest fresh snapshot carried forward for reference; not a forecast.",
+            })
         else:
             reason = (
                 "Fresh station-hour coverage is not sufficient."
-                if not current_data_ready else gate.get("status", "No validated model for this horizon.")
+                if not baseline_ready else gate.get("status", "No validated model for this horizon.")
             )
             days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                          "aqi": None, "status": "unvalidated", "reason": reason})
@@ -391,12 +413,14 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     return {
         "available": True, "station_id": sid, "issued_at": anchor.isoformat(),
         "timezone": timezone_name, "data_age_hours": round(age, 2) if math.isfinite(age) else None,
-        "data_ready": current_data_ready,
+        "data_ready": baseline_ready,
+        "hourly_data_ready": hourly_data_ready,
+        "snapshot_reference_ready": snapshot_value is not None,
         "model_data_ready": model_data_ready,
         "forecast_days": 30,
         "validated_horizons_days": report.get("validated_horizons_days", []),
         "days": days,
-        "reason": None if current_data_ready else "Current station history has not met the freshness and pollutant coverage gates.",
+        "reason": None if baseline_ready else "Current station history has not met freshness and pollutant coverage gates, and no fresh snapshot is available.",
         "basis": "OpenAQ-derived station-hour research estimates; not official CPCB AQI.",
     }
 
