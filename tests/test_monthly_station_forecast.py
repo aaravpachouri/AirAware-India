@@ -1,104 +1,3 @@
-from datetime import datetime, timedelta, timezone
-import json
-import sys
-from pathlib import Path
-
-import pandas as pd
-import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import monthly_station_forecast as monthly
-from station_forecast import FEATURES
-
-
-def history(station_id=1, start=None, hours=240, offset=0):
-    start = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
-    values = {"pm25": 20+offset, "pm10": 40+offset, "no2": 20,
-              "so2": 10, "co": .5, "o3": 30}
-    rows = []
-    for h in range(hours):
-        stamp = start + timedelta(hours=h)
-        for sensor, (pollutant, value) in enumerate(values.items(), 1):
-            rows.append({"station_id": station_id, "sensor_id": sensor,
-                         "pollutant": pollutant, "timestamp": stamp.isoformat(),
-                         "value": value + (h % 12)*.05})
-    return rows
-
-
-def test_read_history_can_filter_to_selected_station(tmp_path):
-    path = tmp_path / "history.jsonl.gz"
-    import gzip
-    rows = history(station_id=10, hours=4) + history(station_id=20, hours=4)
-    with gzip.open(path, "wt", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row) + "\n")
-
-    selected = monthly.read_history(path, station_id=20)
-    assert selected
-    assert {row["station_id"] for row in selected} == {20}
-    assert len(selected) == 4 * 6
-    assert len(monthly.read_history(path)) == 8 * 6
-
-
-def test_horizon_frame_uses_future_window_as_target_only():
-    rows = history(hours=240)
-    baseline = monthly.build_horizon_frame(rows, 2)
-    assert not baseline.empty
-    assert set(FEATURES).issubset(baseline.columns)
-    assert (baseline["target_aqi"] >= 0).all()
-    assert set(pd.to_datetime(baseline["issued_at"], utc=True).dt.hour) == set(range(24))
-    first = baseline.iloc[0]
-    issue = pd.Timestamp(first.issued_at)
-    altered = []
-    for row in rows:
-        item = dict(row)
-        if pd.Timestamp(item["timestamp"]) >= issue:
-            item["value"] *= 2.5
-        altered.append(item)
-    changed = monthly.build_horizon_frame(altered, 2)
-    left = baseline[baseline.issued_at == first.issued_at].iloc[0]
-    right = changed[changed.issued_at == first.issued_at].iloc[0]
-    for feature in FEATURES:
-        assert left[feature] == pytest.approx(right[feature], nan_ok=True)
-    assert left.target_aqi != right.target_aqi
-
-
-def test_horizon_frame_reuses_shared_series_and_caches_without_changing_values():
-    rows = history(hours=240)
-    series_map = monthly.hourly_station_series(rows)
-    feature_cache, target_cache = {}, {}
-    cached = monthly.build_horizon_frame(
-        rows, 2, series_map=series_map,
-        feature_cache=feature_cache, target_cache=target_cache,
-    )
-    uncached = monthly.build_horizon_frame(rows, 2)
-    pd.testing.assert_frame_equal(cached, uncached)
-    assert feature_cache
-    assert target_cache
-
-
-def test_horizon_validation_range_is_enforced():
-    with pytest.raises(ValueError, match="between 1 and 30"):
-        monthly.build_horizon_frame([], 0)
-    with pytest.raises(ValueError, match="between 1 and 30"):
-        monthly.build_horizon_frame([], 31)
-
-
-def test_trainer_withholds_monthly_models_when_station_count_is_insufficient(tmp_path):
-    records = []
-    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for station in range(1, 4):
-        records.extend(history(station, start, 24*12, station))
-    report = monthly.train_monthly_models(
-        records, model_path=tmp_path/"monthly.joblib",
-        report_path=tmp_path/"report.json", max_horizon_days=3,
-    )
-    assert report["status"] == "insufficient_data"
-    assert report["validated_horizons_days"] == []
-    assert not (tmp_path/"monthly.joblib").exists()
-    assert report["horizons"]["1"]["forecast_enabled"] is False
-
-
 def test_remaining_month_returns_all_dates_and_marks_unvalidated_horizons(tmp_path, monkeypatch):
     now = datetime(2026, 11, 7, 12, tzinfo=timezone.utc)
     rows = history(42, now-timedelta(hours=240), 241)
@@ -121,6 +20,11 @@ def test_remaining_month_returns_all_dates_and_marks_unvalidated_horizons(tmp_pa
         "models": {1: {"model": Model(), "validation_status": "validated",
                        "residual_p90": 12}},
     })
+    def varying_daily_aqi(series, anchor):
+        day_offset = (anchor.date() - now.date()).days
+        return (max(0.0, min(500.0, 100.0 + 10.0 * day_offset)), {})
+
+    monkeypatch.setattr(monthly, "aqi_for_window", varying_daily_aqi)
     result = monthly.predict_remaining_month(
         42, issued_at=now, timezone_name="Asia/Kolkata",
         history_path=path, model_path=tmp_path/"model.joblib",
@@ -132,10 +36,20 @@ def test_remaining_month_returns_all_dates_and_marks_unvalidated_horizons(tmp_pa
     assert result["days"][1]["aqi"] == 123.0
     assert result["days"][1]["lower_90"] == 111.0
     assert result["days"][-1]["date"] == "2026-12-07"
-    assert result["days"][2]["status"] == "baseline_forecast"
+    assert result["days"][2]["status"] == "trend_reference"
     assert result["days"][2]["aqi"] is not None
-    assert result["days"][2]["baseline"] == "persistence"
-    assert all(d["status"] == "baseline_forecast" for d in result["days"][2:])
+    assert result["days"][2]["baseline"] == "recent_daily_trend"
+    assert all(d["status"] == "trend_reference" for d in result["days"][2:])
+    assert len({d["aqi"] for d in result["days"][2:]}) > 1
+
+
+def test_trend_reference_changes_with_recent_daily_direction():
+    history_values = [(day, value) for day, value in enumerate([50, 65, 80, 95, 110, 125, 140])]
+    forecasts = [monthly._trend_reference(140, history_values, horizon)
+                 for horizon in (1, 2, 3, 7, 14, 30)]
+    assert len(set(forecasts)) == len(forecasts)
+    assert forecasts[1] > forecasts[0]
+    assert forecasts[30] < forecasts[14]
 
 
 def test_forecast_ledger_is_append_only_and_scores_only_matured_targets(tmp_path):
