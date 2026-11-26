@@ -25,18 +25,18 @@
   "forecast_horizon_hours": 24,
   "minimum_required_improvement_pct": 5.0,
   "note": "Research estimate only; not official CPCB AQI or a regulatory 24-hour CPCB average.",
-  "samples": 234833,
+  "samples": 244290,
   "schema_version": 1,
   "source": "OpenAQ v3 station hourly sensor history",
   "station_gate_passed": false,
   "station_holdout": {
-    "best_baseline_mae": 26.108,
-    "improvement_over_best_baseline_pct": -6.627,
-    "model_mae": 27.838,
-    "persistence_mae": 26.108,
-    "samples": 374,
+    "best_baseline_mae": 25.764,
+    "improvement_over_best_baseline_pct": -9.502,
+    "model_mae": 28.212,
+    "persistence_mae": 25.764,
+    "samples": 316,
     "stations": 91,
-    "three_day_mean_mae": 28.416
+    "three_day_mean_mae": 28.245
   },
   "station_holdout_ids": [
     3409423,
@@ -134,18 +134,18 @@
     3410004,
     3410005
   ],
-  "stations": 469,
+  "stations": 470,
   "status": "baseline_not_beaten",
   "target": "AQI derived from the following 24-hour station window",
   "temporal_gate_passed": false,
   "temporal_holdout": {
-    "best_baseline_mae": 28.117,
-    "improvement_over_best_baseline_pct": -8.334,
-    "model_mae": 30.46,
-    "persistence_mae": 28.117,
-    "samples": 2024,
-    "stations": 443,
-    "three_day_mean_mae": 31.677
+    "best_baseline_mae": 26.095,
+    "improvement_over_best_baseline_pct": -12.15,
+    "model_mae": 29.266,
+    "persistence_mae": 26.095,
+    "samples": 2089,
+    "stations": 446,
+    "three_day_mean_mae": 30.301
   },
-  "temporal_split_utc": "2026-11-17T06:00:00+00:00"
+  "temporal_split_utc": "2026-11-18T00:00:00+00:00"
 }
