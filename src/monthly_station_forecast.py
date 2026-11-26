@@ -316,6 +316,7 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     features = _features_at(series, anchor) if series else None
     current_value, _ = aqi_for_window(series, anchor) if series else (None, {})
     snapshot_value = None
+    snapshot_age = None
     try:
         candidate = float(current_snapshot_aqi)
         snapshot_age = float(snapshot_age_hours)
