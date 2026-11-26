@@ -1453,6 +1453,7 @@ def render_animated_hero(
     forecast_method = str(forecast_method or "Unavailable")
     forecast_label = ("Tomorrow · ML validated" if forecast_method == "Validated station ML"
                       else "Tomorrow · persistence baseline" if forecast_method == "Persistence baseline"
+                      else "Tomorrow · snapshot reference" if forecast_method == "Snapshot reference"
                       else "Tomorrow forecast")
 
     category_key = str(category or "Unavailable").strip().lower()
@@ -3750,9 +3751,11 @@ if page == "Latest Air":
             )
         except Exception as error:
             station_forecast = {"available": False, "reason": str(error)[:180]}
+    snapshot_age = safe_float(live.get("age_hours"))
     snapshot_fallback = (
         safe_float(snapshot_aqi)
-        if safe_float(snapshot_aqi) is not None and 0 <= safe_float(live["age_hours"]) <= 6
+        if safe_float(snapshot_aqi) is not None and snapshot_age is not None
+        and 0 <= snapshot_age <= 6
         else None
     )
     tomorrow_prediction = (
