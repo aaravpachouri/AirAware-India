@@ -384,12 +384,13 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
     # reference a changing, trend-aware trajectory without 30 repeated values
     # or repeated full-history reads. It remains explicitly unvalidated.
     daily_history = []
-    if hourly_data_ready:
+    if series:
         for lookback in range(6, -1, -1):
             day_anchor = anchor - timedelta(days=lookback)
             day_value, _ = aqi_for_window(series, day_anchor)
             if day_value is not None:
                 daily_history.append((6-lookback, float(day_value)))
+    historical_trend_ready = len(daily_history) >= 3
     forecast_end = local_today + timedelta(days=30)
     days = [{
         "date": local_today.isoformat(), "horizon_days": 0,
@@ -419,9 +420,10 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
             except Exception:
                 days.append({"date": cursor.isoformat(), "horizon_days": horizon,
                              "aqi": None, "status": "unavailable"})
-        elif hourly_data_ready:
-            # Trend reference avoids a flat persistence line, but is not
-            # promoted to an ML forecast and carries no calibrated error band.
+        elif baseline_ready and historical_trend_ready:
+            # Blend the freshest eligible level (hourly or snapshot) with
+            # recent station-hour trend. Historical data may be stale, so this
+            # remains a reference and never receives a forecast confidence band.
             reference = _trend_reference(current_value, daily_history, horizon)
             days.append({
                 "date": cursor.isoformat(), "horizon_days": horizon,
