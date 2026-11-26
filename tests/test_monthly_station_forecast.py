@@ -132,7 +132,10 @@ def test_remaining_month_returns_all_dates_and_marks_unvalidated_horizons(tmp_pa
     assert result["days"][1]["aqi"] == 123.0
     assert result["days"][1]["lower_90"] == 111.0
     assert result["days"][-1]["date"] == "2026-11-30"
-    assert all(d["status"] == "unvalidated" for d in result["days"][2:])
+    assert result["days"][2]["status"] == "baseline_forecast"
+    assert result["days"][2]["aqi"] is not None
+    assert result["days"][2]["baseline"] == "persistence"
+    assert all(d["status"] == "baseline_forecast" for d in result["days"][2:])
 
 
 def test_forecast_ledger_is_append_only_and_scores_only_matured_targets(tmp_path):
@@ -175,11 +178,11 @@ def test_month_calendar_is_rendered_even_before_any_horizon_is_validated(tmp_pat
         report_path=tmp_path/"missing-report.json",
     )
     assert result["available"] is True
-    assert len(result["days"]) == 24
+    assert len(result["days"]) == 31  # today plus 30 forecast dates
     assert result["days"][0]["date"] == "2026-11-07"
-    assert result["days"][-1]["date"] == "2026-11-30"
-    assert all(day["aqi"] is None for day in result["days"][1:])
-    assert all(day["status"] == "unvalidated" for day in result["days"][1:])
+    assert result["days"][-1]["date"] == "2026-12-07"
+    assert all(day["aqi"] is not None for day in result["days"][1:])
+    assert all(day["status"] == "baseline_forecast" for day in result["days"][1:])
 
 
 
