@@ -3813,6 +3813,19 @@ if page == "Latest Air":
 
 
 
+    # Use the rolling 30-day engine's day-1 trend reference for the hero
+    # when station ML is withheld; do not label a flat persistence value as
+    # tomorrow's forecast.
+    monthly_tomorrow = next(
+        (day for day in monthly_outlook.get("days", [])
+         if int(day.get("horizon_days", -1)) == 1), None
+    )
+    if (not station_forecast.get("available") and monthly_tomorrow
+            and monthly_tomorrow.get("status") == "trend_reference"
+            and monthly_tomorrow.get("aqi") is not None):
+        tomorrow_prediction = float(monthly_tomorrow["aqi"])
+        forecast_method = "Trend reference"
+
     hero_category = (
 
         get_aqi_category(current_aqi)
@@ -3865,10 +3878,16 @@ if page == "Latest Air":
             "Tomorrow's station-level model forecast passed chronological and held-out-station baseline tests. "
             "OpenAQ-derived research estimate; not an official CPCB forecast."
         )
+    elif forecast_method == "Trend reference":
+        st.info(
+            f"Tomorrow's trend reference is {round(float(tomorrow_prediction))} AQI. "
+            "It uses the recent daily station AQI trajectory with a conservative fading trend; "
+            "it is a research baseline, not a validated ML forecast."
+        )
     elif hourly_aqi is not None:
         st.info(
             f"Tomorrow shows a persistence baseline ({round(float(hourly_aqi))}), not a validated ML prediction. "
-            "It uses the latest eligible 24-hour station AQI as a reference; the trained model did not beat its benchmark."
+            "The station's recent hourly history is insufficient to estimate a trend."
         )
     elif snapshot_fallback is not None:
         st.info(
@@ -3890,7 +3909,7 @@ if page == "Latest Air":
     st.markdown("### Rolling 30-day AQI outlook")
     st.caption(
         "Shows today plus the next 30 days. Validated horizons use the direct station ML model; "
-        "when its validation gate is closed, the table shows a clearly labeled persistence baseline. "
+        "when its validation gate is closed, the table shows a recent-trend reference, not a validated forecast. "
         "Baseline values are not ML forecasts and have no calibrated P90 band."
     )
     if monthly_outlook.get("available"):
@@ -3905,6 +3924,7 @@ if page == "Latest Air":
                 "Current station estimate" if day.get("status") == "current_estimate"
                 else "Validated forecast" if day.get("status") == "validated_forecast"
                 else "Snapshot carry-forward · not a forecast" if day.get("status") == "snapshot_reference"
+                else "Recent-trend reference · unvalidated" if day.get("status") == "trend_reference"
                 else "Persistence baseline · ML not validated" if day.get("status") == "baseline_forecast"
                 else "ML horizon not validated" if day.get("status") == "unvalidated"
                 else "Unavailable"
@@ -3920,7 +3940,7 @@ if page == "Latest Air":
         st.caption(
             f"Validated horizons: {monthly_outlook.get('validated_horizons_days', [])} · "
             f"Station data age: {monthly_outlook.get('data_age_hours')} hours · "
-            "OpenAQ-derived research estimates, not official CPCB forecasts. Persistence rows are benchmarks; only validated status rows are ML."
+            "OpenAQ-derived research estimates, not official CPCB forecasts. Trend references are unvalidated benchmarks; only validated status rows are ML."
         )
     else:
         st.info(
