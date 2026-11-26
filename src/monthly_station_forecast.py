@@ -289,7 +289,7 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                             model_path=MODEL_PATH, report_path=REPORT_PATH,
                             additional_observations=None, max_data_age_hours=6.0,
                             current_snapshot_aqi=None, snapshot_age_hours=None):
-    """Always return the remaining calendar dates; only validated horizons get values."""
+    """Return today plus 30 dates; use ML, hourly persistence, or fresh snapshot reference explicitly."""
     history_path = Path(history_path) if history_path else ROOT/"data"/"station_hourly_history.jsonl.gz"
     try:
         report = json.loads(Path(report_path).read_text(encoding="utf-8"))
@@ -351,7 +351,6 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
         and bool({"pm25", "pm10"} & set(fresh))
         and 0 <= age <= max_data_age_hours
     )
-    current_data_ready = hourly_data_ready and snapshot_value is None
     baseline_ready = hourly_data_ready or snapshot_value is not None
     model_data_ready = hourly_data_ready and features is not None
     local_today = now.astimezone(ZoneInfo(timezone_name)).date()
