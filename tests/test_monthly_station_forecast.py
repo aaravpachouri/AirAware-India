@@ -131,7 +131,7 @@ def test_remaining_month_returns_all_dates_and_marks_unvalidated_horizons(tmp_pa
     assert result["days"][1]["date"] == "2026-11-08"
     assert result["days"][1]["aqi"] == 123.0
     assert result["days"][1]["lower_90"] == 111.0
-    assert result["days"][-1]["date"] == "2026-11-30"
+    assert result["days"][-1]["date"] == "2026-12-07"
     assert result["days"][2]["status"] == "baseline_forecast"
     assert result["days"][2]["aqi"] is not None
     assert result["days"][2]["baseline"] == "persistence"
@@ -237,3 +237,33 @@ def test_monthly_report_serializes_numpy_station_ids(tmp_path, monkeypatch):
     saved = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
     assert report["horizons"]["1"]["status"] == "validated"
     assert all(type(value) is int for value in saved["horizons"]["1"]["station_holdout_ids"])
+
+
+def test_rolling_outlook_uses_fresh_snapshot_as_reference_when_hourly_coverage_fails(tmp_path):
+    now = datetime(2026, 11, 7, 12, tzinfo=timezone.utc)
+    result = monthly.predict_remaining_month(
+        77, issued_at=now, timezone_name="Asia/Kolkata",
+        history_path=tmp_path/"missing-history.jsonl",
+        model_path=tmp_path/"missing-model.joblib",
+        report_path=tmp_path/"missing-report.json",
+        current_snapshot_aqi=140, snapshot_age_hours=1.25,
+    )
+    assert result["snapshot_reference_ready"] is True
+    assert result["days"][0]["aqi"] == 140
+    assert result["days"][0]["status"] == "snapshot_estimate"
+    assert result["days"][1]["aqi"] == 140
+    assert result["days"][1]["status"] == "snapshot_reference"
+    assert result["days"][1]["lower_90"] is None
+    assert result["days"][-1]["horizon_days"] == 30
+
+
+def test_stale_snapshot_is_never_used_as_monthly_reference(tmp_path):
+    now = datetime(2026, 11, 7, 12, tzinfo=timezone.utc)
+    result = monthly.predict_remaining_month(
+        77, issued_at=now, history_path=tmp_path/"missing-history.jsonl",
+        model_path=tmp_path/"missing-model.joblib",
+        report_path=tmp_path/"missing-report.json",
+        current_snapshot_aqi=140, snapshot_age_hours=15,
+    )
+    assert result["snapshot_reference_ready"] is False
+    assert all(day["aqi"] is None for day in result["days"])
