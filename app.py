@@ -1467,6 +1467,7 @@ def render_animated_hero(
         delta_text = "Waiting for 48h data"
     forecast_method = str(forecast_method or "Unavailable")
     forecast_label = ("Tomorrow · ML validated" if forecast_method == "Validated station ML"
+                      else "Tomorrow · recent-trend reference" if forecast_method == "Trend reference"
                       else "Tomorrow · persistence baseline" if forecast_method == "Persistence baseline"
                       else "Tomorrow · snapshot reference" if forecast_method == "Snapshot reference"
                       else "Tomorrow forecast")
