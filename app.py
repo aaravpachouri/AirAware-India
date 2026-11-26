@@ -1446,8 +1446,6 @@ def render_animated_hero(
             delta_text = f"↓ {movement_delta:+.0f} / 24h"
         else:
             delta_text = f"→ {movement_delta:+.0f} / 24h"
-    elif tomorrow is not None and actual_aqi is not None:
-        delta_text = f"{tomorrow - round(actual_aqi):+d} vs current"
     else:
         delta_text = "Waiting for 48h data"
     forecast_method = str(forecast_method or "Unavailable")
