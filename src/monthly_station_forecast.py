@@ -433,12 +433,17 @@ def predict_remaining_month(station_id: int, *, issued_at=None,
                 "reason": gate.get("status", "ML horizon not validated"),
             })
         elif snapshot_value is not None:
+            # Do not fill every future date with today's snapshot. That visual
+            # repetition is not a forecast and falsely suggests a flat outlook.
             days.append({
                 "date": cursor.isoformat(), "horizon_days": horizon,
-                "aqi": round(snapshot_value, 1), "lower_90": None, "upper_90": None,
-                "status": "snapshot_reference", "baseline": "latest_snapshot_carry_forward",
-                "category": _category(snapshot_value),
-                "reason": "Latest fresh snapshot carried forward for reference; not a forecast.",
+                "aqi": None, "lower_90": None, "upper_90": None,
+                "status": "insufficient_trend", "baseline": None,
+                "category": "Unavailable",
+                "reason": (
+                    "A fresh snapshot is available, but station history is too "
+                    "sparse to estimate day-to-day movement. No forecast shown."
+                ),
             })
         else:
             reason = (
