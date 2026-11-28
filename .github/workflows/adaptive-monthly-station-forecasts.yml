@@ -35,7 +35,32 @@ jobs:
       - name: Train direct horizons and score matured forecasts
         run: |
           set -euo pipefail
-          PYTHONUNBUFFERED=1 python -u src/monthly_station_forecast.py | tee monthly-station-result.json
+          # Training progress and the final JSON summary share stdout. Keep the
+          # full console log, then extract the final structured result safely.
+          PYTHONUNBUFFERED=1 python -u src/monthly_station_forecast.py > monthly-station-console.log 2>&1
+          cat monthly-station-console.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          text = Path("monthly-station-console.log").read_text(encoding="utf-8")
+          decoder = json.JSONDecoder()
+          result = None
+          # The training emits progress before its final pretty-printed JSON.
+          for position, char in enumerate(text):
+              if char != "{":
+                  continue
+              try:
+                  candidate, end = decoder.raw_decode(text[position:])
+              except json.JSONDecodeError:
+                  continue
+              if isinstance(candidate, dict) and "report" in candidate and "ledger" in candidate:
+                  result = candidate
+          if result is None:
+              raise SystemExit("Training log did not contain the final report+ledger JSON object.")
+          Path("monthly-station-result.json").write_text(
+              json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
+          )
+          PY
       - name: Add model readiness and horizon metrics to run summary
         run: |
           python - <<'PY'
