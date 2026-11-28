@@ -3774,16 +3774,16 @@ if page == "Latest Air":
         and 0 <= snapshot_age <= 6
         else None
     )
+    # Only show a next-day value when the station model is validated or
+    # the monthly engine has enough recent history for a trend reference.
+    # Never copy today's AQI into tomorrow's card as if it were a forecast.
     tomorrow_prediction = (
-        float(station_forecast["predicted_aqi"]) if station_forecast.get("available")
-        else safe_float(hourly_aqi) if hourly_aqi is not None
-        else snapshot_fallback
+        float(station_forecast["predicted_aqi"])
+        if station_forecast.get("available") else None
     )
     forecast_method = (
         "Validated station ML" if station_forecast.get("available")
-        else "Persistence baseline" if hourly_aqi is not None
-        else "Snapshot reference" if snapshot_fallback is not None
-        else "Unavailable"
+        else "Awaiting station trend history"
     )
     movement_result = {"available": False, "reason": "Two comparable 24-hour AQI windows are needed."}
     try:
